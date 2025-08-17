@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Column Selection</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      color: #333;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 6px;
+      padding: 15px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+    }
+    
+    h2 {
+      color: #1a73e8;
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 16px;
+      border-bottom: 1px solid #e8f0fe;
+      padding-bottom: 8px;
+    }
+    
+    .sheet-info {
+      background-color: #f8f9fa;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+    
+    .column-list {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    
+    .column-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid #f1f3f4;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .column-item:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .column-item:last-child {
+      border-bottom: none;
+    }
+    
+    .column-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .column-letter {
+      font-weight: 600;
+      color: #1967d2;
+      min-width: 25px;
+    }
+    
+    .column-header {
+      flex: 1;
+      margin-left: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .operation-section {
+      margin-bottom: 20px;
+      padding: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      background-color: #fafafa;
+    }
+    
+    .operation-section h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #1967d2;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 12px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #3c4043;
+      font-size: 12px;
+    }
+    
+    select, input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #dadce0;
+      border-radius: 3px;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    
+    select:focus, input[type="text"]:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2);
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1967d2;
+    }
+    
+    .btn-secondary {
+      background-color: #f8f9fa;
+      color: #3c4043;
+      border: 1px solid #dadce0;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #f1f3f4;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 6px;
+    }
+    
+    .checkbox-group label {
+      margin-bottom: 0;
+      font-size: 12px;
+    }
+    
+    .info {
+      background-color: #e8f0fe;
+      border-left: 3px solid #1a73e8;
+      padding: 8px;
+      margin: 10px 0;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    
+    .selection-controls {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    
+    .selection-controls button {
+      flex: 1;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📊 Column Operations</h2>
+    
+    <div class="sheet-info">
+      <div id="sheetInfoDisplay">Loading sheet information...</div>
+    </div>
+    
+    <div class="info">
+      Select columns to apply operations. Multiple columns can be selected for batch processing.
+    </div>
+    
+    <div class="selection-controls">
+      <button class="btn btn-secondary" onclick="selectAllColumns()">All</button>
+      <button class="btn btn-secondary" onclick="selectNoneColumns()">None</button>
+      <button class="btn btn-secondary" onclick="invertSelection()">Invert</button>
+    </div>
+    
+    <div class="column-list" id="columnList">
+      <div style="padding: 20px; text-align: center; color: #5f6368;">
+        Loading columns...
+      </div>
+    </div>
+    
+    <div class="operation-section">
+      <h3>🔤 Change Case</h3>
+      <div class="form-group">
+        <label for="caseType">Case Type:</label>
+        <select id="caseType">
+          <option value="upper">UPPERCASE</option>
+          <option value="lower">lowercase</option>
+          <option value="title">Title Case</option>
+          <option value="sentence">Sentence case</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="applyCaseChange()">Apply to Selected Columns</button>
+    </div>
+    
+    <div class="operation-section">
+      <h3>✂️ Split Text</h3>
+      <div class="form-group">
+        <label for="splitDelimiter">Delimiter:</label>
+        <input type="text" id="splitDelimiter" placeholder="e.g., comma, space, semicolon">
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="removeOriginalSplit">
+        <label for="removeOriginalSplit">Remove original columns</label>
+      </div>
+      <button class="btn btn-primary" onclick="applySplitText()">Split Selected Columns</button>
+    </div>
+    
+    <div class="operation-section">
+      <h3>🧹 Clean Data</h3>
+      <button class="btn btn-primary" onclick="applyTrimToColumns()">Trim Whitespace</button>
+      <button class="btn btn-secondary" onclick="removeSelectedColumns()">Remove Selected Columns</button>
+    </div>
+    
+    <div class="operation-section">
+      <h3>📈 Analysis</h3>
+      <button class="btn btn-secondary" onclick="analyzeSelectedColumns()">Analyze Selected Columns</button>
+    </div>
+  </div>
+
+  <script>
+    let sheetInfo = null;
+    let selectedColumns = new Set();
+    
+    // Load sheet information when sidebar opens
+    google.script.run
+      .withSuccessHandler(onSheetInfoLoaded)
+      .withFailureHandler(onError)
+      .getSheetInfo();
+    
+    function onSheetInfoLoaded(info) {
+      sheetInfo = info;
+      updateSheetInfoDisplay();
+      populateColumnList();
+    }
+    
+    function updateSheetInfoDisplay() {
+      const display = document.getElementById('sheetInfoDisplay');
+      if (sheetInfo.hasData) {
+        display.innerHTML = `
+          <strong>${sheetInfo.sheetName}</strong><br>
+          ${sheetInfo.rowCount.toLocaleString()} rows × ${sheetInfo.columnCount} columns
+        `;
+      } else {
+        display.innerHTML = '<em>No data available</em>';
+      }
+    }
+    
+    function populateColumnList() {
+      const list = document.getElementById('columnList');
+      
+      if (!sheetInfo.hasData) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #5f6368;">No columns available</div>';
+        return;
+      }
+      
+      list.innerHTML = '';
+      
+      sheetInfo.headers.forEach((header, index) => {
+        const item = document.createElement('div');
+        item.className = 'column-item';
+        item.onclick = () => toggleColumn(index);
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `col_${index}`;
+        checkbox.onchange = (e) => {
+          e.stopPropagation();
+          toggleColumn(index);
+        };
+        
+        const letter = document.createElement('span');
+        letter.className = 'column-letter';
+        letter.textContent = getColumnLetter(index);
+        
+        const headerText = document.createElement('span');
+        headerText.className = 'column-header';
+        headerText.textContent = header || `Column ${index + 1}`;
+        headerText.title = header || `Column ${index + 1}`;
+        
+        item.appendChild(checkbox);
+        item.appendChild(letter);
+        item.appendChild(headerText);
+        
+        list.appendChild(item);
+      });
+    }
+    
+    function toggleColumn(index) {
+      const checkbox = document.getElementById(`col_${index}`);
+      
+      if (selectedColumns.has(index)) {
+        selectedColumns.delete(index);
+        checkbox.checked = false;
+      } else {
+        selectedColumns.add(index);
+        checkbox.checked = true;
+      }
+    }
+    
+    function selectAllColumns() {
+      selectedColumns.clear();
+      for (let i = 0; i < sheetInfo.columnCount; i++) {
+        selectedColumns.add(i);
+        const checkbox = document.getElementById(`col_${i}`);
+        if (checkbox) checkbox.checked = true;
+      }
+    }
+    
+    function selectNoneColumns() {
+      selectedColumns.clear();
+      for (let i = 0; i < sheetInfo.columnCount; i++) {
+        const checkbox = document.getElementById(`col_${i}`);
+        if (checkbox) checkbox.checked = false;
+      }
+    }
+    
+    function invertSelection() {
+      const newSelection = new Set();
+      for (let i = 0; i < sheetInfo.columnCount; i++) {
+        if (!selectedColumns.has(i)) {
+          newSelection.add(i);
+        }
+        const checkbox = document.getElementById(`col_${i}`);
+        if (checkbox) checkbox.checked = !selectedColumns.has(i);
+      }
+      selectedColumns = newSelection;
+    }
+    
+    function applyCaseChange() {
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      
+      const caseType = document.getElementById('caseType').value;
+      const columnIndices = Array.from(selectedColumns);
+      
+      google.script.run
+        .withSuccessHandler(onOperationComplete)
+        .withFailureHandler(onError)
+        .changeCaseInColumns(columnIndices, caseType);
+    }
+    
+    function applySplitText() {
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      
+      const delimiter = document.getElementById('splitDelimiter').value;
+      if (!delimiter) {
+        alert('Please enter a delimiter.');
+        return;
+      }
+      
+      const removeOriginal = document.getElementById('removeOriginalSplit').checked;
+      const columnIndices = Array.from(selectedColumns);
+      
+      google.script.run
+        .withSuccessHandler(onOperationComplete)
+        .withFailureHandler(onError)
+        .splitTextInColumns(columnIndices, delimiter, removeOriginal);
+    }
+    
+    function applyTrimToColumns() {
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      
+      const columnIndices = Array.from(selectedColumns);
+      
+      google.script.run
+        .withSuccessHandler(onOperationComplete)
+        .withFailureHandler(onError)
+        .trimColumnsWhitespace(columnIndices);
+    }
+    
+    function removeSelectedColumns() {
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to remove ${selectedColumns.size} column(s)? This action cannot be undone.`)) {
+        return;
+      }
+      
+      const columnIndices = Array.from(selectedColumns);
+      
+      google.script.run
+        .withSuccessHandler(onOperationComplete)
+        .withFailureHandler(onError)
+        .removeColumns(columnIndices);
+    }
+    
+    function analyzeSelectedColumns() {
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      
+      const columnIndices = Array.from(selectedColumns);
+      
+      google.script.run
+        .withSuccessHandler(onAnalysisComplete)
+        .withFailureHandler(onError)
+        .analyzeColumns(columnIndices);
+    }
+    
+    function onOperationComplete(result) {
+      alert('Operation completed successfully!');
+      // Refresh the sheet info
+      google.script.run
+        .withSuccessHandler(onSheetInfoLoaded)
+        .withFailureHandler(onError)
+        .getSheetInfo();
+    }
+    
+    function onAnalysisComplete(analysis) {
+      let message = 'Column Analysis Results:\n\n';
+      analysis.forEach((result, index) => {
+        message += `Column ${getColumnLetter(result.columnIndex)}:\n`;
+        message += `  Data Type: ${result.dataType}\n`;
+        message += `  Empty Cells: ${result.emptyCells}\n`;
+        message += `  Unique Values: ${result.uniqueValues}\n\n`;
+      });
+      alert(message);
+    }
+    
+    function getColumnLetter(index) {
+      let letter = '';
+      while (index >= 0) {
+        letter = String.fromCharCode(65 + (index % 26)) + letter;
+        index = Math.floor(index / 26) - 1;
+      }
+      return letter;
+    }
+    
+    function onError(error) {
+      alert('Error: ' + error.toString());
+    }
+  </script>
+</body>
+</html>
+

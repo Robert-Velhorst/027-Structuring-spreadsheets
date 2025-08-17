@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Options</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 100%;
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #1a73e8;
+      margin-top: 0;
+      border-bottom: 2px solid #e8f0fe;
+      padding-bottom: 10px;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #dadce0;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #5f6368;
+      font-weight: 500;
+    }
+    
+    .tab.active {
+      color: #1a73e8;
+      border-bottom-color: #1a73e8;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #1967d2;
+    }
+    
+    select, input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    select:focus, input:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
+    
+    input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 25px;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1967d2;
+    }
+    
+    .btn-secondary {
+      background-color: #f8f9fa;
+      color: #3c4043;
+      border: 1px solid #dadce0;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #f1f3f4;
+    }
+    
+    .btn-danger {
+      background-color: #ea4335;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background-color: #d33b2c;
+    }
+    
+    .info {
+      background-color: #e8f0fe;
+      border-left: 4px solid #1a73e8;
+      padding: 10px;
+      margin: 15px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .warning {
+      background-color: #fef7e0;
+      border-left: 4px solid #fbbc04;
+      padding: 10px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    
+    .sheet-info {
+      background-color: #f8f9fa;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    
+    .operation-card {
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: #fafafa;
+    }
+    
+    .operation-card h3 {
+      margin-top: 0;
+      color: #1967d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚙️ Advanced Options</h1>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('batch')">Batch Operations</div>
+      <div class="tab" onclick="showTab('backup')">Backup & Restore</div>
+      <div class="tab" onclick="showTab('analysis')">Data Analysis</div>
+    </div>
+    
+    <!-- Batch Operations Tab -->
+    <div id="batch" class="tab-content active">
+      <div class="info">
+        Perform multiple operations in sequence with custom configurations.
+      </div>
+      
+      <div class="sheet-info">
+        <h3>Current Sheet Information</h3>
+        <div id="sheetInfoDisplay">Loading...</div>
+      </div>
+      
+      <div class="operation-card">
+        <h3>Batch Text Cleaning</h3>
+        <div class="checkbox-group">
+          <input type="checkbox" id="batchTrim" checked>
+          <label for="batchTrim" style="margin-bottom: 0;">Smart Trim (remove extra whitespace)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="batchCase">
+          <label for="batchCase" style="margin-bottom: 0;">Change Case</label>
+        </div>
+        <div class="form-group" style="margin-left: 25px;">
+          <select id="batchCaseType">
+            <option value="upper">UPPERCASE</option>
+            <option value="lower">lowercase</option>
+            <option value="title">Title Case</option>
+            <option value="sentence">Sentence case</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="operation-card">
+        <h3>Batch Data Cleaning</h3>
+        <div class="checkbox-group">
+          <input type="checkbox" id="batchRemoveDuplicates">
+          <label for="batchRemoveDuplicates" style="margin-bottom: 0;">Remove Duplicate Rows</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="batchRemoveEmpty">
+          <label for="batchRemoveEmpty" style="margin-bottom: 0;">Remove Empty Rows and Columns</label>
+        </div>
+      </div>
+      
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="runBatchOperations()">Run Batch Operations</button>
+        <button class="btn btn-secondary" onclick="resetBatchOptions()">Reset Options</button>
+      </div>
+    </div>
+    
+    <!-- Backup & Restore Tab -->
+    <div id="backup" class="tab-content">
+      <div class="info">
+        Create backups of your data before performing operations.
+      </div>
+      
+      <div class="operation-card">
+        <h3>Create Backup</h3>
+        <p>Create a backup copy of the current sheet with a timestamp.</p>
+        <button class="btn btn-primary" onclick="createBackup()">Create Backup</button>
+      </div>
+      
+      <div class="operation-card">
+        <h3>Sheet Selection</h3>
+        <div class="form-group">
+          <label for="targetSheet">Work on Different Sheet:</label>
+          <select id="targetSheet">
+            <option value="">Loading sheets...</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" onclick="switchToSheet()">Switch to Selected Sheet</button>
+      </div>
+      
+      <div class="warning">
+        <strong>⚠️ Important:</strong> Backups are created as new sheets in the same spreadsheet. Remember to clean up old backups periodically.
+      </div>
+    </div>
+    
+    <!-- Data Analysis Tab -->
+    <div id="analysis" class="tab-content">
+      <div class="info">
+        Analyze your data quality and get insights before cleaning.
+      </div>
+      
+      <div class="operation-card">
+        <h3>Data Quality Report</h3>
+        <p>Generate a report showing data quality issues in your sheet.</p>
+        <div id="analysisResults" style="display: none;">
+          <h4>Analysis Results:</h4>
+          <div id="analysisContent"></div>
+        </div>
+        <button class="btn btn-primary" onclick="analyzeData()">Analyze Data</button>
+      </div>
+      
+      <div class="operation-card">
+        <h3>Column Statistics</h3>
+        <div class="form-group">
+          <label for="statsColumn">Select Column for Statistics:</label>
+          <select id="statsColumn">
+            <option value="">Select a column...</option>
+          </select>
+        </div>
+        <div id="columnStats" style="display: none;">
+          <h4>Column Statistics:</h4>
+          <div id="statsContent"></div>
+        </div>
+        <button class="btn btn-secondary" onclick="getColumnStats()">Get Statistics</button>
+      </div>
+    </div>
+    
+    <div class="button-group" style="border-top: 1px solid #dadce0; padding-top: 20px;">
+      <button class="btn btn-secondary" onclick="google.script.host.close()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let sheetInfo = null;
+    let allSheets = [];
+    
+    // Load initial data
+    google.script.run
+      .withSuccessHandler(onSheetInfoLoaded)
+      .withFailureHandler(onError)
+      .getSheetInfo();
+    
+    google.script.run
+      .withSuccessHandler(onSheetsLoaded)
+      .withFailureHandler(onError)
+      .getAllSheetNames();
+    
+    function onSheetInfoLoaded(info) {
+      sheetInfo = info;
+      updateSheetInfoDisplay();
+      populateColumnSelects();
+    }
+    
+    function onSheetsLoaded(sheets) {
+      allSheets = sheets;
+      populateSheetSelect();
+    }
+    
+    function updateSheetInfoDisplay() {
+      const display = document.getElementById('sheetInfoDisplay');
+      if (sheetInfo.hasData) {
+        display.innerHTML = `
+          <strong>Sheet:</strong> ${sheetInfo.sheetName}<br>
+          <strong>Rows:</strong> ${sheetInfo.rowCount.toLocaleString()}<br>
+          <strong>Columns:</strong> ${sheetInfo.columnCount}<br>
+          <strong>Estimated Processing Time:</strong> ${estimateProcessingTime(sheetInfo.rowCount, sheetInfo.columnCount)}
+        `;
+      } else {
+        display.innerHTML = '<em>No data available in current sheet</em>';
+      }
+    }
+    
+    function populateColumnSelects() {
+      const selects = ['statsColumn'];
+      
+      selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Select a column...</option>';
+        
+        if (sheetInfo.hasData) {
+          sheetInfo.headers.forEach((header, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `${getColumnLetter(index)} - ${header || 'Column ' + (index + 1)}`;
+            select.appendChild(option);
+          });
+        }
+      });
+    }
+    
+    function populateSheetSelect() {
+      const select = document.getElementById('targetSheet');
+      select.innerHTML = '<option value="">Select a sheet...</option>';
+      
+      allSheets.forEach(sheet => {
+        const option = document.createElement('option');
+        option.value = sheet.name;
+        option.textContent = sheet.name;
+        select.appendChild(option);
+      });
+    }
+    
+    function showTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      document.getElementById(tabName).classList.add('active');
+      
+      // Add active class to clicked tab
+      event.target.classList.add('active');
+    }
+    
+    function runBatchOperations() {
+      const operations = [];
+      
+      if (document.getElementById('batchTrim').checked) {
+        operations.push('trim');
+      }
+      
+      if (document.getElementById('batchCase').checked) {
+        operations.push({
+          type: 'case',
+          caseType: document.getElementById('batchCaseType').value
+        });
+      }
+      
+      if (document.getElementById('batchRemoveDuplicates').checked) {
+        operations.push('duplicates');
+      }
+      
+      if (document.getElementById('batchRemoveEmpty').checked) {
+        operations.push('empty');
+      }
+      
+      if (operations.length === 0) {
+        alert('Please select at least one operation.');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(onBatchComplete)
+        .withFailureHandler(onError)
+        .runBatchOperations(operations);
+    }
+    
+    function createBackup() {
+      google.script.run
+        .withSuccessHandler(onBackupComplete)
+        .withFailureHandler(onError)
+        .createSheetBackup();
+    }
+    
+    function analyzeData() {
+      google.script.run
+        .withSuccessHandler(onAnalysisComplete)
+        .withFailureHandler(onError)
+        .analyzeSheetData();
+    }
+    
+    function getColumnStats() {
+      const columnIndex = document.getElementById('statsColumn').value;
+      if (!columnIndex) {
+        alert('Please select a column.');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(onStatsComplete)
+        .withFailureHandler(onError)
+        .getColumnStatistics(parseInt(columnIndex));
+    }
+    
+    function onBatchComplete(result) {
+      alert('Batch operations completed successfully!');
+      google.script.host.close();
+    }
+    
+    function onBackupComplete(result) {
+      if (result.success) {
+        alert(result.message);
+      } else {
+        alert('Backup failed: ' + result.message);
+      }
+    }
+    
+    function onAnalysisComplete(analysis) {
+      const content = document.getElementById('analysisContent');
+      content.innerHTML = `
+        <strong>Data Quality Issues Found:</strong><br>
+        • Empty cells: ${analysis.emptyCells}<br>
+        • Potential duplicates: ${analysis.duplicates}<br>
+        • Whitespace issues: ${analysis.whitespaceIssues}<br>
+        • Mixed data types: ${analysis.mixedTypes}
+      `;
+      document.getElementById('analysisResults').style.display = 'block';
+    }
+    
+    function onStatsComplete(stats) {
+      const content = document.getElementById('statsContent');
+      content.innerHTML = `
+        <strong>Data Type:</strong> ${stats.dataType}<br>
+        <strong>Total Values:</strong> ${stats.totalValues}<br>
+        <strong>Empty Values:</strong> ${stats.emptyValues}<br>
+        <strong>Unique Values:</strong> ${stats.uniqueValues}
+      `;
+      document.getElementById('columnStats').style.display = 'block';
+    }
+    
+    function resetBatchOptions() {
+      document.getElementById('batchTrim').checked = true;
+      document.getElementById('batchCase').checked = false;
+      document.getElementById('batchRemoveDuplicates').checked = false;
+      document.getElementById('batchRemoveEmpty').checked = false;
+    }
+    
+    function estimateProcessingTime(rows, columns) {
+      const totalCells = rows * columns;
+      if (totalCells < 1000) return 'Less than 1 second';
+      if (totalCells < 10000) return '1-3 seconds';
+      if (totalCells < 100000) return '3-10 seconds';
+      return 'More than 10 seconds';
+    }
+    
+    function getColumnLetter(index) {
+      let letter = '';
+      while (index >= 0) {
+        letter = String.fromCharCode(65 + (index % 26)) + letter;
+        index = Math.floor(index / 26) - 1;
+      }
+      return letter;
+    }
+    
+    function onError(error) {
+      alert('Error: ' + error.toString());
+    }
+  </script>
+</body>
+</html>
+
