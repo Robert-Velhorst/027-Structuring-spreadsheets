@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sheet Shaper</title>
+  <style>
+    :root { color-scheme: light; --ink:#17233b; --muted:#5f6b7a; --line:#d8dee9; --paper:#fff; --wash:#f4f7fb; --blue:#1a73e8; --blue2:#0b57d0; --green:#137333; --amber:#a15c00; --red:#b3261e; --shadow:0 1px 2px rgba(16,24,40,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; font:13px/1.45 Arial, sans-serif; color:var(--ink); background:var(--wash); }
+    button, select, input { font:inherit; }
+    button:focus-visible, select:focus-visible, input:focus-visible { outline:3px solid rgba(26,115,232,.28); outline-offset:2px; }
+    .topbar { position:sticky; top:0; z-index:4; background:#102a43; color:#fff; padding:16px; box-shadow:var(--shadow); }
+    .toprow { display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    h1 { font-size:19px; margin:0; letter-spacing:-.2px; }
+    h2 { font-size:14px; margin:0 0 10px; }
+    p { margin:6px 0; }
+    .subtle { color:var(--muted); }
+    .topbar .subtle { color:#c7d8ea; }
+    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:3px 8px; font-size:11px; font-weight:700; background:#dff2e4; color:var(--green); }
+    .badge.paused { background:#fce8e6; color:var(--red); }
+    main { padding:12px; display:grid; gap:10px; }
+    .card { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:13px; box-shadow:var(--shadow); }
+    .card.emphasis { border-color:#9ec5ff; background:#f7fbff; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .row.between { justify-content:space-between; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    label { display:block; color:#344054; font-weight:700; margin:9px 0 4px; }
+    input[type=text], input[type=number], select { width:100%; min-height:36px; border:1px solid #aeb8c6; border-radius:6px; padding:7px 9px; background:#fff; color:var(--ink); }
+    select[multiple] { min-height:145px; }
+    .check { display:flex; align-items:flex-start; gap:7px; font-weight:400; margin:9px 0; }
+    .check input { margin-top:3px; }
+    .btn { border:1px solid transparent; border-radius:6px; min-height:36px; padding:7px 11px; font-weight:700; cursor:pointer; }
+    .btn.primary { background:var(--blue); color:#fff; }
+    .btn.primary:hover { background:var(--blue2); }
+    .btn.secondary { background:#fff; color:var(--blue2); border-color:#9bb9df; }
+    .btn.danger { background:#fff; color:var(--red); border-color:#e7a7a2; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+    .btn.small { min-height:30px; padding:4px 8px; font-size:12px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:9px; }
+    .metric { border:1px solid var(--line); border-radius:7px; padding:8px; background:#fff; }
+    .metric strong { display:block; font-size:17px; }
+    .metric span { color:var(--muted); font-size:11px; }
+    .message { display:none; padding:9px; border-radius:7px; margin:8px 12px 0; white-space:pre-wrap; }
+    .message.show { display:block; }
+    .message.error { background:#fce8e6; color:#8c1d18; border:1px solid #f2b8b5; }
+    .message.success { background:#e6f4ea; color:#0d652d; border:1px solid #a8dab5; }
+    .message.info { background:#e8f0fe; color:#174ea6; border:1px solid #aecbfa; }
+    .diff { display:grid; grid-template-columns:44px 1fr 1fr; gap:5px; padding:6px 0; border-bottom:1px solid #edf0f4; font-size:12px; }
+    .diff code { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; background:#f3f5f7; padding:3px 4px; border-radius:4px; }
+    .warning { color:var(--amber); }
+    .history { display:grid; gap:7px; }
+    .history-item { border-left:3px solid #9bb9df; padding:7px 8px; background:#f8fafc; }
+    details summary { cursor:pointer; font-weight:700; padding:3px 0; }
+    .hidden { display:none !important; }
+    .spinner { width:14px; height:14px; border:2px solid #c9d8ea; border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; vertical-align:-2px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="toprow"><h1>Sheet Shaper</h1><span id="modeBadge" class="badge">Checking…</span></div>
+    <p class="subtle">Preview → backup → transform → validate → restore</p>
+  </header>
+  <div id="message" class="message" role="status" aria-live="polite"></div>
+  <main>
+    <section id="onboarding" class="card emphasis hidden" aria-labelledby="welcomeTitle">
+      <h2 id="welcomeTitle">Safe by default</h2>
+      <p>Sheet Shaper changes only the selected range or the current data region. Every write requires a fresh preview and creates a hidden backup in this spreadsheet.</p>
+      <p>No cell data is sent to an external service. There are no background jobs or automatic emails.</p>
+      <label class="check"><input id="welcomeConfirm" type="checkbox"> <span>I understand that I must review the target and preview before applying a change.</span></label>
+      <button id="finishOnboarding" class="btn primary" disabled>Continue</button>
+    </section>
+
+    <section class="card" aria-labelledby="targetTitle">
+      <div class="row between"><h2 id="targetTitle">Current target</h2><button id="refresh" class="btn secondary small">Refresh</button></div>
+      <strong id="sheetName">Loading…</strong>
+      <p id="selectionInfo" class="subtle"></p>
+      <div class="row between"><span>Mutation safety stop</span><button id="pauseToggle" class="btn danger small" disabled>Pause changes</button></div>
+    </section>
+
+    <section class="card" aria-labelledby="workflowTitle">
+      <h2 id="workflowTitle">1. Configure</h2>
+      <label for="scope">Target</label>
+      <select id="scope"><option value="selection">Current selection</option><option value="data">Current sheet data region</option></select>
+      <label for="operations">Operations (Ctrl/Cmd-click for a batch)</label>
+      <select id="operations" multiple aria-describedby="operationHelp"></select>
+      <p id="operationHelp" class="subtle">Operations run from top to bottom. Maximum 8.</p>
+      <label class="check"><input id="hasHeader" type="checkbox" checked> <span>First row contains headers (kept out of deduplication and sorting)</span></label>
+      <div id="columnOptions" class="grid2">
+        <div><label for="columns">Target columns</label><input id="columns" type="text" placeholder="All, or 1,3,5"></div>
+        <div><label for="sortColumn">Sort/split column</label><input id="sortColumn" type="number" min="1" value="1"></div>
+      </div>
+      <div class="grid2">
+        <div><label for="delimiter">Split delimiter</label><input id="delimiter" type="text" value=","></div>
+        <div><label for="sortDirection">Sort direction</label><select id="sortDirection"><option value="asc">Ascending</option><option value="desc">Descending</option></select></div>
+      </div>
+      <label class="check"><input id="keepOriginal" type="checkbox"> <span>Keep original column when splitting</span></label>
+      <div class="actions">
+        <button id="analyze" class="btn secondary">Analyze quality</button>
+        <button id="preview" class="btn primary">Create preview</button>
+      </div>
+    </section>
+
+    <section id="qualityCard" class="card hidden" aria-labelledby="qualityTitle">
+      <h2 id="qualityTitle">Quality analysis</h2>
+      <div id="qualityMetrics" class="metric-grid"></div>
+    </section>
+
+    <section id="previewCard" class="card emphasis hidden" aria-labelledby="previewTitle">
+      <h2 id="previewTitle">2. Review preview</h2>
+      <p id="previewTarget"></p>
+      <div id="previewMetrics" class="metric-grid"></div>
+      <div id="warnings"></div>
+      <details><summary>Sample differences</summary><div id="diffs"></div></details>
+      <label class="check"><input id="applyConfirm" type="checkbox"> <span>I reviewed this preview and authorize one validated write with a hidden backup.</span></label>
+      <button id="apply" class="btn primary" disabled>Apply once</button>
+    </section>
+
+    <section id="resultCard" class="card hidden" aria-labelledby="resultTitle">
+      <h2 id="resultTitle">3. Validation result</h2>
+      <div id="resultBody"></div>
+      <div class="actions"><button id="restoreLatest" class="btn danger" disabled>Restore from backup</button></div>
+    </section>
+
+    <section class="card" aria-labelledby="presetTitle">
+      <details><summary id="presetTitle">Presets and local export</summary>
+        <label for="presetName">Preset name</label><input id="presetName" type="text" maxlength="40">
+        <div class="actions"><button id="savePreset" class="btn secondary small">Save settings</button><button id="loadPresets" class="btn secondary small">Refresh presets</button></div>
+        <div id="presetList"></div>
+        <div class="actions"><button id="exportCsv" class="btn secondary small">Download target as CSV</button><button id="supportBundle" class="btn secondary small">Download support bundle</button></div>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="historyTitle">
+      <div class="row between"><h2 id="historyTitle">Operation history</h2><button id="refreshHistory" class="btn secondary small">Refresh</button></div>
+      <label class="sr-only" for="historySearch">Filter history</label><input id="historySearch" type="text" placeholder="Filter by status or operation">
+      <div id="history" class="history"></div>
+    </section>
+
+    <section class="card" aria-labelledby="privacyTitle">
+      <details><summary id="privacyTitle">Privacy, recovery, and help</summary>
+        <p>Processing stays inside the active spreadsheet and Apps Script. Hidden backups and user-scoped audit metadata are retained locally; only the newest 10 backups are retained.</p>
+        <p>If automatic restore fails, unhide the named backup sheet and copy the affected range manually. Never delete a backup until validation succeeds.</p>
+        <div class="actions"><button id="deleteData" class="btn danger small">Delete my Sheet Shaper data and backups</button></div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+    const state = { bootstrap:null, previewToken:null, latest:null, busy:false };
+    const $ = id => document.getElementById(id);
+
+    function success(handler) { return response => { setBusy(false); if (!response || !response.ok) return showError(response && response.error); handler(response.data); }; }
+    function failure(error) { setBusy(false); showError({ code:'CLIENT_RPC_FAILED', message:error && error.message ? error.message : String(error), nextAction:'Refresh the sidebar and retry.' }); }
+    const api = {
+      bootstrap: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getBootstrap(),
+      onboard: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).acknowledgeOnboarding(),
+      preview: (request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).previewOperation(request),
+      apply: (command, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).applyOperation(command),
+      undo: (id, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).undoOperation(id),
+      analyze: (request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).analyzeCurrentTarget(request),
+      history: (page, size, query, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getOperationHistory(page, size, query),
+      exportCsv: (options, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportCurrentRangeCsv(options),
+      savePreset: (name, request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).savePreset(name, request),
+      presets: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).listPresets(),
+      deletePreset: (name, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deletePreset(name),
+      pause: (paused, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).setMutationPause(paused),
+      support: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportSupportBundle(),
+      deleteData: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deleteMySheetShaperData()
+    };
+
+    function setBusy(busy) {
+      state.busy = busy;
+      document.querySelectorAll('button').forEach(button => { if (!button.dataset.keepEnabled) button.disabled = busy; });
+      if (!busy) updateControls();
+      if (busy) showMessage('info', '<span class="spinner"></span> Working…');
+    }
+    function showMessage(type, html) { const node=$('message'); node.className='message show '+type; node.innerHTML=html; }
+    function clearMessage() { $('message').className='message'; $('message').textContent=''; }
+    function showError(error) { const code=error && error.code ? error.code : 'ERROR'; const message=error && error.message ? error.message : 'The request failed.'; const next=error && error.nextAction ? '\nNext: '+error.nextAction : ''; showMessage('error', escapeHtml(code+': '+message+next)); }
+    function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character])); }
+    function updateControls() {
+      const paused=state.bootstrap && state.bootstrap.paused;
+      $('pauseToggle').disabled=state.busy || !state.bootstrap;
+      $('pauseToggle').textContent=paused?'Resume changes':'Pause changes';
+      $('modeBadge').textContent=paused?'PAUSED':'READY'; $('modeBadge').className='badge'+(paused?' paused':'');
+      $('preview').disabled=state.busy || paused;
+      $('apply').disabled=state.busy || paused || !state.previewToken || !$('applyConfirm').checked;
+      $('restoreLatest').disabled=state.busy || paused || !state.latest || !state.latest.canRestore;
+      $('finishOnboarding').disabled=!$('welcomeConfirm').checked || state.busy;
+    }
+
+    function selectedOperations() { return Array.from($('operations').selectedOptions).map(option => option.value); }
+    function parseColumns() {
+      const text=$('columns').value.trim(); if (!text) return [];
+      const columns=text.split(',').map(value=>Number(value.trim())-1);
+      if (columns.some(value=>!Number.isInteger(value)||value<0)) throw new Error('Columns must be positive numbers separated by commas.');
+      return [...new Set(columns)];
+    }
+    function buildRequest() {
+      const types=selectedOperations(); if (!types.length) throw new Error('Choose at least one operation.');
+      const columns=parseColumns(); const column=Math.max(0, Number($('sortColumn').value||1)-1);
+      return { scope:$('scope').value, hasHeader:$('hasHeader').checked, operations:types.map(type=>({ type, options:{ columns, column, delimiter:$('delimiter').value, keepOriginal:$('keepOriginal').checked, direction:$('sortDirection').value } })) };
+    }
+    function resetPreview() { state.previewToken=null; $('previewCard').classList.add('hidden'); $('applyConfirm').checked=false; updateControls(); }
+
+    function load() { setBusy(true); api.bootstrap(data=>{ state.bootstrap=data; state.latest=data.latest; renderBootstrap(data); clearMessage(); api.presets(renderPresets); }); }
+    function renderBootstrap(data) {
+      $('sheetName').textContent=data.sheet.spreadsheetName+' / '+data.sheet.sheetName;
+      $('selectionInfo').textContent=data.sheet.selectionA1+' · '+data.sheet.selectionRows+' rows × '+data.sheet.selectionColumns+' columns'+(data.sheet.hasMergedCells?' · merged cells detected':'');
+      $('operations').innerHTML=data.operations.map(operation=>`<option value="${escapeHtml(operation.type)}">${escapeHtml(operation.label)} · ${escapeHtml(operation.risk)}</option>`).join('');
+      $('operations').options[0].selected=true;
+      $('onboarding').classList.toggle('hidden',!data.settings.firstRun);
+      renderHistory(data.history); renderResult(data.latest); updateControls();
+    }
+    function renderQuality(data) {
+      const quality=data.quality||data;
+      $('qualityMetrics').innerHTML=metric(quality.score,'Score')+metric(quality.confidence,'Confidence')+metric(quality.emptyCells,'Empty')+metric(quality.whitespaceIssues,'Whitespace')+metric(quality.duplicateRows,'Duplicates')+metric(quality.mixedTypeColumns,'Mixed columns');
+      $('qualityCard').classList.remove('hidden');
+    }
+    function metric(value,label) { return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`; }
+    function renderPreview(data) {
+      state.previewToken=data.previewToken; $('previewTarget').textContent=data.target+' · preview expires in '+Math.floor(data.expiresInSeconds/60)+' minutes';
+      const s=data.summary; $('previewMetrics').innerHTML=metric(s.changedCells,'Changed cells')+metric(s.beforeRows+'×'+s.beforeColumns,'Before')+metric(s.afterRows+'×'+s.afterColumns,'After')+metric(s.risk,'Risk')+metric(data.beforeQuality.score,'Score before')+metric(data.afterQuality.score,'Score after');
+      $('warnings').innerHTML=data.warnings.map(warning=>`<p class="warning">⚠ ${escapeHtml(warning)}</p>`).join('');
+      $('diffs').innerHTML=data.examples.length?data.examples.map(diff=>`<div class="diff"><span>R${diff.row}C${diff.column}</span><code title="${escapeHtml(diff.before)}">${escapeHtml(diff.before)}</code><code title="${escapeHtml(diff.after)}">${escapeHtml(diff.after)}</code></div>`).join(''):'<p class="subtle">No sample differences.</p>';
+      $('previewCard').classList.remove('hidden'); $('applyConfirm').checked=false; clearMessage(); updateControls();
+    }
+    function renderResult(record) {
+      state.latest=record; if (!record) { $('resultCard').classList.add('hidden'); updateControls(); return; }
+      const validation=record.validation; $('resultBody').innerHTML=`<p><span class="badge${record.status==='APPLIED'?'':' paused'}">${escapeHtml(record.status)}</span> ${escapeHtml(record.sheetName+'!'+record.rangeA1)}</p><p>${escapeHtml(record.operations.map(item=>item.type).join(' → '))}</p><p>${validation&&validation.passed?'Validation passed.':'Validation not available or failed.'} Backup: <strong>${escapeHtml(record.backupSheetName||'unavailable')}</strong></p>`;
+      $('resultCard').classList.remove('hidden'); updateControls();
+    }
+    function renderHistory(data) {
+      $('history').innerHTML=data.items.length?data.items.map(item=>`<div class="history-item"><div class="row between"><strong>${escapeHtml(item.status)}</strong><span class="subtle">${escapeHtml(item.createdAt.slice(0,19).replace('T',' '))}Z</span></div><div>${escapeHtml(item.operations.map(operation=>operation.type).join(' → '))}</div><div class="subtle">${escapeHtml(item.sheetName+'!'+item.rangeA1)} · ${escapeHtml(item.summary.changedCells)} changes</div></div>`).join(''):'<p class="subtle">No operations recorded for you in this spreadsheet.</p>';
+    }
+    function renderPresets(data) {
+      $('presetList').innerHTML=data.presets.length?data.presets.map(preset=>`<div class="row between"><button class="btn secondary small preset-load" data-name="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}</button><button class="btn danger small preset-delete" data-name="${escapeHtml(preset.name)}">Delete</button></div>`).join(''):'<p class="subtle">No saved presets.</p>';
+      document.querySelectorAll('.preset-load').forEach(button=>button.addEventListener('click',()=>applyPreset(data.presets.find(item=>item.name===button.dataset.name))));
+      document.querySelectorAll('.preset-delete').forEach(button=>button.addEventListener('click',()=>{ if(confirm('Delete preset "'+button.dataset.name+'"?')) { setBusy(true); api.deletePreset(button.dataset.name,()=>api.presets(renderPresets)); } }));
+    }
+    function applyPreset(preset) {
+      $('scope').value=preset.request.scope; $('hasHeader').checked=preset.request.hasHeader;
+      const types=preset.request.operations.map(item=>item.type); Array.from($('operations').options).forEach(option=>option.selected=types.includes(option.value));
+      const first=preset.request.operations[0]&&preset.request.operations[0].options||{}; $('columns').value=(first.columns||[]).map(value=>value+1).join(','); $('sortColumn').value=(first.column||0)+1; $('delimiter').value=first.delimiter||','; $('keepOriginal').checked=first.keepOriginal===true; $('sortDirection').value=first.direction||'asc'; resetPreview(); showMessage('info','Preset loaded. Create a fresh preview before applying.');
+    }
+    function download(data) { const blob=new Blob([data.content],{type:data.mimeType}); const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download=data.filename; document.body.appendChild(link); link.click(); setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1000); }
+
+    $('welcomeConfirm').addEventListener('change',updateControls);
+    $('finishOnboarding').addEventListener('click',()=>{setBusy(true);api.onboard(()=>{$('onboarding').classList.add('hidden');showMessage('success','Safety setup saved.');});});
+    $('refresh').addEventListener('click',load);
+    $('pauseToggle').addEventListener('click',()=>{const paused=!state.bootstrap.paused;setBusy(true);api.pause(paused,data=>{state.bootstrap.paused=data.paused;showMessage('info',data.paused?'Changes paused. Preview and apply are disabled.':'Changes resumed.');updateControls();});});
+    ['scope','operations','hasHeader','columns','sortColumn','delimiter','keepOriginal','sortDirection'].forEach(id=>$(id).addEventListener('change',resetPreview));
+    $('analyze').addEventListener('click',()=>{try{setBusy(true);api.analyze(buildRequest(),data=>{renderQuality(data);clearMessage();});}catch(error){showError({code:'INVALID_INPUT',message:error.message});}});
+    $('preview').addEventListener('click',()=>{try{setBusy(true);api.preview(buildRequest(),renderPreview);}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});
+    $('applyConfirm').addEventListener('change',updateControls);
+    $('apply').addEventListener('click',()=>{if(!state.previewToken)return;setBusy(true);api.apply({previewToken:state.previewToken,acknowledged:true,idempotencyKey:crypto.randomUUID?crypto.randomUUID():String(Date.now())},record=>{resetPreview();renderResult(record);showMessage('success','Write and validation completed. The backup remains available for restore.');api.history(1,8,'',renderHistory);});});
+    $('restoreLatest').addEventListener('click',()=>{if(!state.latest||!confirm('Restore the affected range from '+state.latest.backupSheetName+'?'))return;setBusy(true);api.undo(state.latest.id,record=>{renderResult(record);showMessage('success','Restore validated.');api.history(1,8,'',renderHistory);});});
+    $('refreshHistory').addEventListener('click',()=>{setBusy(true);api.history(1,8,$('historySearch').value,renderHistory);});
+    $('historySearch').addEventListener('input',()=>api.history(1,8,$('historySearch').value,renderHistory));
+    $('savePreset').addEventListener('click',()=>{try{setBusy(true);api.savePreset($('presetName').value,buildRequest(),data=>{renderPresets(data);showMessage('success','Preset saved for your account.');});}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});
+    $('loadPresets').addEventListener('click',()=>{setBusy(true);api.presets(renderPresets);});
+    $('exportCsv').addEventListener('click',()=>{setBusy(true);api.exportCsv({scope:$('scope').value,delimiter:','},data=>{download(data);showMessage('success','CSV prepared locally in your browser.');});});
+    $('supportBundle').addEventListener('click',()=>{setBusy(true);api.support(data=>{download(data);showMessage('success','Privacy-safe support bundle downloaded.');});});
+    $('deleteData').addEventListener('click',()=>{if(!confirm('Delete your Sheet Shaper history, presets, settings, and owned hidden backups for this spreadsheet? This cannot be undone.'))return;setBusy(true);api.deleteData(data=>{showMessage('success','Deleted '+data.deletedRecords+' records and '+data.deletedBackups+' backups.');load();});});
+    document.addEventListener('DOMContentLoaded',load);
+  </script>
+</body>
+</html>
