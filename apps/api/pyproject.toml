@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sheet-shaper-api"
+version = "3.0.0"
+description = "Local-first spreadsheet structuring service for Sheet Shaper."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "python-multipart>=0.0.18,<1",
+  "openpyxl>=3.1,<4",
+  "pydantic-settings>=2.6,<3"
+]
+
+[project.optional-dependencies]
+test = ["httpx>=0.27,<1", "pytest>=8,<9", "pytest-cov>=5,<7"]
+build = ["pyinstaller>=6,<7"]
+
+[project.scripts]
+sheet-shaper = "sheet_shaper_api.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,9 @@
+export type Quality = { score:number; confidence:string; totalCells:number; emptyCells:number; whitespaceIssues:number; duplicateRows:number; mixedTypeColumns:number }
+export type WindowData = { row:number; column:number; rows:unknown[][]; sheet:string; range:string; totalRows:number; totalColumns:number; truncated:boolean }
+export type DocumentRecord = { id:string; name:string; mediaType:string; rows:number; columns:number; versionHash:string; createdAt:string; updatedAt:string; window?:WindowData; quality?:Quality }
+export type OperationSpec = { type:string; options:Record<string, unknown> }
+export type Preview = { previewToken:string; expiresAt:string; target:string; summary:{ changedCells:number; beforeRows:number; beforeColumns:number; afterRows:number; afterColumns:number; risk:string; beforeQuality:Quality; afterQuality:Quality }; examples:{row:number;column:number;before:string;after:string}[]; warnings:string[] }
+export type OperationRecord = { id:string; documentId:string; documentName:string; status:'APPLYING'|'APPLIED'|'FAILED'|'RESTORED'; summary:{changedCells:number;target?:string}; validation?:{passed:boolean}|null; errorCode?:string|null; canRestore:boolean; createdAt:string; updatedAt:string }
+export type History = { items:OperationRecord[]; page:number; pageSize:number; total:number; pages:number; statusCounts:Record<string,number> }
+export type Capabilities = { version:string; mode:'local'|'public'; operations:{type:string;risk:string}[]; maxCells:number; maxUploadMb:number; previewTtlSeconds:number; hai:{configured:boolean;mutationsEnabled:boolean}; externalTransmission:boolean }
+export type Envelope<T> = { ok:true; data:T } | { ok:false; error:{code:string;message:string;retrySafe:boolean;requestId?:string} }

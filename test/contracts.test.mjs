@@ -45,11 +45,30 @@ test('production code contains no external transport or fake-success provider', 
 });
 
 test('every sidebar RPC call has a concrete server function', () => {
-  const expected=['getBootstrap','acknowledgeOnboarding','previewOperation','applyOperation','undoOperation','analyzeCurrentTarget','getOperationHistory','exportCurrentRangeCsv','savePreset','listPresets','deletePreset','setMutationPause','exportSupportBundle','deleteMySheetShaperData'];
+  const expected=['getBootstrap','setLanguage','acknowledgeOnboarding','previewOperation','previewCsvImport','applyOperation','applyCsvImport','undoOperation','analyzeCurrentTarget','getOperationHistory','exportCurrentRangeCsv','savePreset','listPresets','deletePreset','setMutationPause','exportSupportBundle','deleteMySheetShaperData'];
   for(const name of expected){
     assert.match(sidebarText,new RegExp(`\\.${name}\\(`));
     assert.match(serverText,new RegExp(`function\\s+${name}\\s*\\(`));
   }
+});
+
+test('CSV import follows the same backup-write-validate order and persists no raw CSV', () => {
+  const start=serverText.indexOf('function applyCsvImport');
+  const end=serverText.indexOf('function applyOperation');
+  const apply=serverText.slice(start,end);
+  assert.ok(apply.indexOf('ssCreateBackup')>0);
+  assert.ok(apply.indexOf('ssWriteResult')>apply.indexOf('ssCreateBackup'));
+  assert.ok(apply.indexOf('record.validation')>apply.indexOf('ssWriteResult'));
+  assert.match(apply,/csvDigest/);
+  assert.match(apply,/CSV_CHANGED/);
+  assert.doesNotMatch(apply,/record\s*=\s*\{[^}]*csvText/s);
+});
+
+test('feature flags are explicit booleans and production capabilities are enabled', () => {
+  const context=loadScripts(['src/Core.gs','src/Server.gs']);
+  assert.deepEqual(JSON.parse(JSON.stringify(context.SS_FEATURE_FLAGS)),{
+    csvImport:true,bilingualUi:true,historyPagination:true,exceptionRecovery:true
+  });
 });
 
 test('public operation projection excludes owner keys and digests', () => {

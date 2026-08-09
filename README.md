@@ -1,86 +1,129 @@
 # Sheet Shaper
 
-Sheet Shaper is a safety-first Google Sheets Editor add-on for cleaning and structuring a selected range. It provides smart trim, case conversion, duplicate removal, empty-row/column compaction, text splitting, row sorting, operation batches, quality scoring, presets, local CSV export, history, and validated restore.
+Sheet Shaper structures CSV, XLSX, and Google Sheets data without hiding the
+consequences of a write. It now ships as both a Windows 11 standalone workspace
+and a least-privilege Google Sheets Editor add-on.
 
-The supported mutation path is deliberately strict:
+The supported mutation path is strict:
 
-`select target → preview → acknowledge → hidden backup → locked write → digest validation → restore if needed`
+`import or select → analyze → preview → acknowledge → backup → locked write → readback validation → restore if needed`
 
-No cell content is transmitted outside Google Sheets and Apps Script. The production code does not use `UrlFetchApp`, Drive, Gmail, external APIs, a database, or scheduled triggers.
+## Windows workspace
 
-## Safety properties
+The standalone workspace includes:
 
-- Every write requires a fresh, user-owned preview token that expires after 10 minutes.
-- Apply fails closed if the spreadsheet, sheet, range, or input digest changed after preview.
-- A document lock prevents concurrent Sheet Shaper writes.
-- An idempotency key prevents duplicate submission from repeating a completed write.
-- A hidden copy of the whole source sheet is created before the target changes.
-- The written range is read back and compared to the preview digest.
-- Restore is limited to the user-owned operation record and is itself validated.
-- User history, presets, and settings use `UserProperties`; they are not shared with collaborators.
-- Only the current-spreadsheet and container-UI OAuth scopes are declared.
-- Merged cells, read-only ranges, oversized targets, stale previews, and expansion collisions are rejected before a write.
+- CSV and XLSX import with bounded 25 MB / 250,000-cell limits.
+- Smart trim, case conversion, duplicate removal, empty row/column compaction,
+  text splitting, sorting, and ordered operation batches.
+- Exact preview examples, before/after quality scores, risk classification, and
+  ten-minute preview expiry.
+- SQLite metadata in WAL mode, parameterized queries, idempotent writes,
+  per-document locks, hashed backups, readback validation, history, download,
+  stale-safe restore, and complete document/backup deletion.
+- A responsive React interface for desktop and mobile-width browsers.
+- Loopback-only local operation, authenticated ngrok mode, and a private Sites
+  frontend that can connect to the ngrok service.
+- A bearer-authenticated HAI connector that is read-and-preview only by default.
 
-## Local verification
+Spreadsheet bytes stay under `%LOCALAPPDATA%\SheetShaper` in local mode. Public
+mode sends browser/API traffic through the operator's ngrok endpoint and the UI
+states that change explicitly. Cell values are never stored in audit events.
 
-Requirements: Node.js 20 or newer. There are no third-party runtime or test dependencies.
+### Install from source
+
+Requirements: Windows 11, Python 3.11+, and an even-numbered supported Node.js
+release (20, 22, or 24).
+
+```powershell
+.\scripts\windows\setup.ps1
+.\scripts\windows\start-local.ps1
+```
+
+The launcher selects the first free loopback port from 8765 through 8790,
+opens the browser, and records only verified process identity. Stop it with:
+
+```powershell
+.\scripts\windows\stop.ps1
+```
+
+### Build the standalone executable
+
+```powershell
+.\scripts\windows\build-standalone.ps1
+```
+
+The one-folder build appears under `dist\SheetShaper`. It contains the Python
+runtime, API, workbook engine, and built web interface; Node and Python are not
+required on the destination computer.
+
+### Cloud access through ngrok
+
+Configure the ngrok agent once, then run:
+
+```powershell
+.\scripts\windows\start-ngrok.ps1
+```
+
+The launcher always keeps the API bound to loopback, creates or reuses a
+64-character bearer token protected with Windows DPAPI, isolates its ngrok
+agent API from other local tunnels, checks the exact target and HTTPS URL,
+performs an authenticated public readiness request, and copies the token to the
+clipboard. If the account's endpoint is already active elsewhere, startup fails
+closed instead of enabling pooling or stopping the other endpoint.
+
+For the private Sites frontend, pass its origin explicitly:
+
+```powershell
+.\scripts\windows\start-ngrok.ps1 -AllowedOrigin 'https://YOUR-SITES-URL'
+```
+
+### HAI connector
+
+The connector description is in `connectors/hai/connector.json`. HAI can list
+documents, read bounded windows, analyze quality, and create previews after it
+receives the bearer token through its own secret store. Apply and restore are
+not advertised until the operator deliberately sets
+`SS_HAI_MUTATIONS_ENABLED=true`; they still require review acknowledgement,
+idempotency, backup, and validation.
+
+## Google Sheets add-on
+
+The Apps Script add-on retains its original least-privilege boundary. It uses
+only the current spreadsheet and container UI scopes. Its English and Dutch UI
+supports preview-safe CSV import, operations, presets, quality analysis,
+paginated history, support export, validated restore, feature flags, safety
+pause, and user-owned data deletion. It does not use Gmail, Drive, remote fetch,
+scheduled triggers, or public Execution API access.
+
+Build and verify it with a supported Node.js release:
 
 ```powershell
 npm ci
 npm run verify
 ```
 
-If `npm` is unavailable but Node is installed:
-
-```powershell
-node scripts/lint.mjs
-node --test --test-reporter=spec
-node scripts/build.mjs
-node scripts/doctor.mjs
-```
-
-The build creates `dist/` with `Core.gs`, `Server.gs`, `Sidebar.html`, and `appsscript.json`.
-
-## Install in Apps Script
-
-1. Run `npm run verify`.
-2. Create an Apps Script project intended for a Google Sheets Editor add-on.
-3. Copy `.clasp.example.json` to `.clasp.json` and replace the example project ID. `.clasp.json` is ignored because it is environment-specific.
-4. Install Google `clasp` using your organization-approved method, sign in to the intended Google account, then run `clasp push` from the repository root after confirming `rootDir` is `dist`.
-5. In Apps Script, create a test deployment and install it for a dedicated test spreadsheet.
-6. Complete the critical-path test in [docs/CRITICAL_PATH.md](docs/CRITICAL_PATH.md).
-7. Do not publish to the Marketplace until OAuth consent, privacy/support URLs, branding, administrator policy, and Google review are complete.
-
-The repository cannot create or approve the Google project, consent screen, test deployment, or Marketplace listing. Those are real owner/account actions and are reported as external blockers, not simulated.
-
-## User workflow
-
-1. Open a spreadsheet and choose **Extensions → Sheet Shaper → Open Sheet Shaper**.
-2. Review the target shown in the sidebar.
-3. Choose the selection or sheet data region, one or more operations, and options.
-4. Run quality analysis if helpful, then create a preview.
-5. Review counts, risk, score change, warnings, and sample differences.
-6. Acknowledge and apply once. The result card names the hidden backup and validation status.
-7. Use **Restore from backup** if the result is not wanted.
-8. Use presets for repeated batches and history/support export for troubleshooting.
+`dist/` is generated for an owner-approved Apps Script project. Real Google
+installation, OAuth consent, administrator policy, two-account tests, and
+Marketplace publication remain owner/account actions and are never simulated.
 
 ## Architecture
 
-- `src/Core.gs`: deterministic, testable matrix transformations and quality analysis.
-- `src/Server.gs`: Apps Script UI/RPC, authorization boundary, preview cache, backups, locks, idempotency, audit records, retention, and restore.
-- `src/Sidebar.html`: accessible single-sidebar workflow with no external assets.
-- `test/`: deterministic, adversarial, contract, scope, and critical-path tests.
-- `scripts/`: zero-dependency lint, build, and doctor checks.
-- `docs/`: audit, security, acceptance, operations, traceability, and final verification evidence.
+- `apps/api`: FastAPI, SQLite, workbook adapters, safety engine, HAI surface.
+- `apps/web`: React/Vite workspace used by Windows and the hosted frontend.
+- `apps/site`: Cloudflare Workers-compatible private Sites delivery surface.
+- `connectors/hai`: connector contract and setup guide.
+- `scripts/windows`: setup, local start, ngrok start, stop, and executable build.
+- `src`, `test`, `scripts`: the Google Sheets Apps Script add-on and its gates.
+- `docs`: architecture, design contract, security, runbooks, and evidence.
 
-## Honest limitations
+## Verification
 
-- Google-hosted execution and Marketplace deployment require a real Apps Script project and owner approval; they cannot be verified locally.
-- Apps Script quotas vary by account and can interrupt very large work. Sheet Shaper caps a run at 250,000 cells and advises smaller ranges above 100,000 cells.
-- Operations compact the target range's values rather than deleting physical spreadsheet rows or columns. This avoids silently changing unrelated layout, filters, charts, or references.
-- The automatic restore returns affected cells/formulas/formats from the hidden backup. If Google rejects the copy or the backup was manually deleted, the operator must unhide the backup and restore manually.
-- Spreadsheet collaborators can unhide or delete hidden backup sheets. Operation metadata is user-scoped, but a hidden sheet is not a security boundary.
-- The UI is English in this release; Dutch localization is tracked as partial rather than claimed complete.
-- CSV export is supported as a local browser download. CSV import parsing is tested in the deterministic engine but is not exposed in production until a preview-safe import UX is completed.
+Local gates cover deterministic add-on behavior, the full preview/apply/restore
+Apps Script contract, FastAPI CSV/XLSX integration, malformed inputs,
+authorization, HAI default-deny behavior, formula preservation, deletion,
+React review/apply and disconnected states, PowerShell parsing, production web
+builds, loopback runtime startup/shutdown, and packaged executable startup.
 
-See [docs/FINAL_VERIFICATION_REPORT.md](docs/FINAL_VERIFICATION_REPORT.md) and [docs/GOAL_COMPLETION_MATRIX.md](docs/GOAL_COMPLETION_MATRIX.md) for the evidence-backed status.
+GitHub Actions repeats the add-on gates and builds/tests the Windows stack with
+Node 24 and Python 3.13. See `docs/FINAL_VERIFICATION_REPORT.md` and
+`docs/GOAL_COMPLETION_MATRIX.md` for the exact status and external blockers.

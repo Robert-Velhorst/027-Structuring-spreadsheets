@@ -2,21 +2,74 @@ name: quality-gates
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  addon:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run verify
+
+  standalone-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm --dir apps/web install --frozen-lockfile
+      - run: pnpm --dir apps/web run lint
+      - run: pnpm --dir apps/web run test -- --pool=threads --maxWorkers=1 --no-file-parallelism
+      - run: pnpm --dir apps/web run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+      - run: python -m pip install -e "apps/api[test,build]"
+      - run: python -m pytest apps/api/tests
+      - shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem scripts/windows/*.ps1 | ForEach-Object {
+            $tokens = $null; $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            $errors += $parseErrors
+          }
+          if ($errors.Count) { $errors | Format-List; exit 1 }
+      - run: python -m PyInstaller --noconfirm --clean --onedir --console --name SheetShaper --paths apps/api/src --add-data "apps/web/dist;web" apps/api/src/sheet_shaper_api/standalone.py
+      - shell: pwsh
+        run: |
+          $env:SS_DATA_DIR = Join-Path $env:RUNNER_TEMP 'sheet-shaper-smoke'
+          $process = Start-Process -FilePath '.\dist\SheetShaper\SheetShaper.exe' -WindowStyle Hidden -PassThru
+          try {
+            $ready = $false
+            1..60 | ForEach-Object {
+              if (-not $ready) {
+                try { $ready = (Invoke-RestMethod 'http://127.0.0.1:8765/readyz' -TimeoutSec 2).status -eq 'ready' } catch {}
+                Start-Sleep -Milliseconds 500
+              }
+            }
+            if (-not $ready) { throw 'Packaged runtime did not become ready.' }
+            $capabilities = Invoke-RestMethod 'http://127.0.0.1:8765/api/v1/capabilities'
+            if (-not $capabilities.ok) { throw 'Packaged API smoke test failed.' }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }

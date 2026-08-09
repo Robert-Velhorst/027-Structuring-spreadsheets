@@ -1,99 +1,169 @@
 # Final verification report
 
-Date: 2026-08-08
+Date: 2026-08-09
 Branch: `codex/production-hardening-027`
-Starting commit: `d2a041a6a671cfcbc2bac06ea3e0c227fe490ccd`
-Default branch: `main` (matched remote `HEAD`; implementation intentionally used a feature branch)
-Final commit: use repository `HEAD` at handoff; the exact hash is reported in the final response because a commit cannot embed its own hash
+Starting commit: `64fad52b4ffe5a75f8256bd2ec4605a1976d484a`
+Final commit: repository `HEAD` at handoff
 
-## Implemented
+## Delivered
 
-- Replaced the unsafe/disconnected prototype runtime with a connected Editor add-on menu/sidebar.
-- Added deterministic smart trim, case operations, duplicate removal, empty-row/column compaction, split, sort, batch sequencing, quality score/confidence, presets, history, and local CSV export.
-- Preserved formulas as formulas through transformations and digest validation.
-- Added access/merge/size/expansion checks, ten-minute user preview, explicit acknowledgement, stale-input digest, document lock, mutation cooldown, idempotency, hidden whole-sheet backup, readback validation, validated affected-range restore, safety stop, retention, support export, and user data deletion.
-- Reduced OAuth to current spreadsheet + container UI and removed public Execution API, remote-fetch, Drive/Gmail, sharing, scheduler, fake export, and placeholder production surfaces.
-- Added zero-dependency build/lint/doctor, Node test baseline, read-only CI, changelog, and all required operational evidence documents.
+- Retained and strengthened the Google Sheets add-on, including safe CSV
+  preview/apply, English/Dutch language selection, feature flags, bounded
+  history, and real preview → backup → write → validation → restore integration
+  tests.
+- Added a real standalone product: React/Vite frontend, FastAPI API, SQLite WAL
+  metadata, CSV/XLSX adapters, deterministic engine, and local version files.
+- Wired import, document selection, bounded table view, quality analysis,
+  operation selection, preview examples, acknowledgement, idempotent apply,
+  history/filtering, download, stale-safe restore, and complete deletion.
+- Added Windows setup/local/ngrok/stop/build commands and produced a one-folder
+  executable containing the API and web interface.
+- Added a private Sites-compatible worker/frontend and a HAI connector contract.
+- Added Windows and Linux CI jobs for add-on, web, API, PowerShell, PyInstaller,
+  and packaged-runtime smoke checks.
 
-## Backend/API
+## Security and resource controls
 
-No external backend or HTTP API. Apps Script RPC uses a uniform safe envelope. Google services are inventoried in `API_USAGE_AUDIT.md`. There are no database migrations, workers, schedulers, uploads, or external provider integrations.
+- API always binds to loopback; cloud access is through ngrok only.
+- Public mode requires a bearer token of at least 32 UTF-8 bytes. The Windows
+  launcher creates 48 random bytes, stores the token with current-user DPAPI,
+  excludes it from runtime JSON, and copies it to the clipboard for setup.
+- CORS uses an explicit origin list; Sites origins must be passed to the ngrok
+  launcher. CSP, no-sniff, no-referrer, permissions policy, no-store API cache,
+  request IDs, body limits, and public rate limiting are active.
+- SQLite uses foreign keys, WAL, normal synchronization, a busy timeout,
+  parameterized queries, indexes, and schema versioning.
+- Workbook work is offloaded from the async request loop. One Uvicorn process is
+  enforced because document locks are process-local.
+- Previews expire, stale hashes fail closed, write attempts are idempotent,
+  backups are copied and hashed before writing, output is read back and compared,
+  and restore rejects newer-version conflicts.
+- Audit events exclude cell content and tokens. Expired previews and bounded
+  audit metadata are pruned. Critical source/result/backup versions are retained
+  until explicit document deletion.
+- CSV formula-injection literals are escaped; real XLSX formulas are preserved.
+  Filenames are sanitized and user-controlled filesystem paths are not used.
 
-## Frontend/UI
+## Verification evidence
 
-One responsive accessible sidebar displays exact target, operational controls, quality metrics, preview counts/risk/diffs/warnings, mandatory acknowledgement, validated result/backup, restore, presets, local exports, searchable history, safety stop, onboarding, privacy, and deletion. Every visible action is mapped in `UI_ACTION_AUDIT.md`.
-
-Rendered Browser QA is blocked. The required in-app Browser connection was attempted twice, including a 120-second attempt, and timed out before a session/tab was exposed. No Playwright fallback was used because the Browser workflow did not authorize silently switching surfaces. Static sidebar/client syntax and RPC connectivity passed, but no screenshot or browser-interaction proof is claimed. Real interaction also requires the Apps Script `google.script.run` host bridge.
-
-## Commands and results
-
-Executed with bundled Node.js v24.14.0 and system `npm.cmd`:
+### Google Sheets add-on
 
 ```text
 node scripts/lint.mjs
-  Syntax and UI contract lint passed (16 RPC call sites checked).
+  Passed; 19 RPC call sites checked.
 
-node --test --test-reporter=spec
-  tests 19; pass 19; fail 0
+node --test --test-reporter=spec "test/**/*.test.mjs"
+  22 passed; 0 failed.
 
 node scripts/build.mjs
-  Built dist/ with 2 script files, 1 sidebar, and the least-privilege manifest.
+  Passed; generated least-privilege Apps Script bundle.
 
 node scripts/doctor.mjs
-  Repository files, Node runtime, manifest scopes, and external execution boundary healthy.
-
-npm ci
-  Up to date; audited 1 package; 0 vulnerabilities.
-
-npm run verify
-  Lint passed; 19/19 tests passed; build passed; doctor passed.
-
-git diff --check
-  Passed with no whitespace errors.
+  Passed; files, runtime, scopes, and external-execution boundary healthy.
 ```
 
-Final no-excuses scan results:
+### Standalone API
 
-- Unsafe service/public exposure scan (`UrlFetchApp`, Drive/Gmail/Mail, `executionApi`, `ANYONE`): no production matches.
-- Secret assignment scan outside docs/tests: no matches.
-- Tracked runtime/data file scan (`.env`, `.clasp.json`, node_modules, dist, uploads, databases, logs, keys): no matches.
-- TODO/fake/placeholder scan: only policy regex definitions in `scripts/lint.mjs` and `test/contracts.test.mjs`; no product marker.
-- UI/server connectivity: 16 RPC call sites passed static contract lint; 14 distinct server RPCs are audited.
+```text
+python -m pytest apps/api/tests -q
+  11 passed; 0 failed.
+```
 
-## Docker/deployment
+Coverage includes CSV apply/restore/download/idempotency, public bearer auth,
+HAI read-only default, malformed inputs, full deletion, single-process lock
+guard, XLSX trimming, readback validation, and formula preservation. A test-only
+Starlette warning recommends the newer `httpx2` TestClient transport; it does not
+affect the production server.
 
-Docker: Not applicable; this is serverless Apps Script.
-Local deployable bundle: Built successfully.
-Apps Script push/test deployment: Blocked because no real project ID, authenticated owner account, or deployment was supplied.
-Marketplace: Blocked on owner/admin/Google consent and review actions.
+### React and bundles
 
-## Security/privacy
+```text
+npm --prefix apps/web run lint
+  TypeScript and source-contract lint passed; 14 files checked.
 
-Threat model, privacy impact, retention/deletion, incident response, scope inventory, and supply-chain review are in `SECURITY.md`. No secret is required by the code. `.clasp.json`, environment files, logs, coverage, `dist`, and `node_modules` are ignored. The tracked-file and secret scans are clean.
+vitest run src/App.test.tsx --pool=forks --maxWorkers=1
+  2 passed; 0 failed.
 
-## Known limitations
+vite build
+  Passed; 224.38 KB JavaScript, 70.11 KB gzip.
 
-- No Google-hosted or multi-account browser proof yet.
-- English UI only; Dutch is partial.
-- CSV import parser is tested but no production import action is exposed.
-- History search is exposed; UI pagination beyond the first page is not.
-- Hidden backup sheets are recoverability tools, not a confidentiality boundary for spreadsheet collaborators.
-- Real quota/performance behavior and formula/filter/chart/pivot/protection edge cases need hosted testing.
-- Repository license decision is unresolved.
+node apps/site/scripts/build.mjs
+  Passed; worker entry and static client created.
+```
 
-## Critical path status
+The UI tests exercise a loaded spreadsheet through preview acknowledgement and
+apply, then verify the updated quality state. They also verify that an offline
+service shows a disconnected error and invents no rows or success state.
+That exact suite passed during the implementation run. Three final-repeat
+attempts on the loaded Windows host timed out while starting the Vitest worker,
+before transform/import or test execution; Node 24 and Node 25 showed the same
+host-level handshake timeout. TypeScript/source lint and the production Vite
+build passed again after those attempts.
 
-Local transformation and safety contracts: passed.
-Manual hosted flow: blocked pending Apps Script deployment.
-No production-readiness claim is made until every applicable Google-hosted test in `ACCEPTANCE_TESTS.md` has actual evidence.
+### Windows runtime
 
-## How to run
+- PowerShell parsing passed for setup, local start, ngrok start, stop, and build.
+- Local startup detected another app on 8765, selected 8766, returned ready/local
+  version 3.0.0, and stopped only its recorded process.
+- The packaged `SheetShaper.exe` returned ready/local version 3.0.0, served the
+  bundled interface with HTTP 200, and was stopped after exact path/PID checking.
+- The final one-folder executable was rebuilt after the static-asset refresh;
+  its launcher EXE measures 7,211,328 bytes.
 
-Local: `npm ci && npm run verify`.
-Deploy: follow `OPERATOR_RUNBOOK.md`; copy `.clasp.example.json` to ignored `.clasp.json`, insert the owner-approved project ID, authenticate approved `clasp`, push `dist`, create a test deployment.
-Migrations/workers: none.
-Tests: `npm test`, or `node --test --test-reporter=spec`.
+## Live provider acceptance
 
-## Commit/data hygiene
+### ngrok
 
-The tracked-file scan found no secrets, runtime data, uploads, local databases, generated `dist`, or environment-specific `.clasp.json`. Commit/push and clean-clone results are reported in the final handoff after those actions complete.
+The launcher found an existing local ngrok agent at port 4040 and correctly
+rejected its unrelated `laro.internal` tunnel. The implementation then isolated
+its agent API on a new port and matched the exact upstream. The ngrok service
+rejected the new endpoint because the account's assigned public domain was
+already online elsewhere (`ERR_NGROK_334`). The launcher stopped its own API and
+ngrok processes. It did not stop the other endpoint and did not enable pooling,
+because either action could misroute spreadsheet traffic.
+
+### HAI
+
+Local authenticated manifest and capability tests pass. The manifest is
+read-and-preview only by default. Live HAI-to-public-endpoint acceptance depends
+on resolving the ngrok endpoint conflict.
+
+### Sites
+
+The private Sites project, exact source version, and production deployment are
+created during the release handoff. The connector-returned URL is reported in
+the final response rather than embedded here so the committed source remains
+the exact version used for packaging.
+
+### Gmail and Google Drive
+
+No Gmail or Drive writes were needed or performed. The product does not claim
+those providers as runtime integrations. This preserves the requested
+review-gated, owner-controlled boundary and avoids silent external actions.
+
+## Visual verification status
+
+The frontend-builder concept pass produced and inspected desktop and mobile
+references under `docs/design`. The implementation follows their white canvas,
+nav/command/inspector layout, quality band, history table, operation sheet, and
+mobile bottom navigation.
+
+Rendered interaction capture is not claimed:
+
+- In-app Browser initialization timed out twice, including a full 120-second
+  attempt, before exposing a tab.
+- Computer control listed the exact local Chrome window, but both screenshot and
+  accessibility state capture failed with `node_repl exec context not found`
+  after the required recovery sequence.
+
+No Playwright fallback was used because Browser and Computer were explicitly
+requested and neither workflow authorized silently switching surfaces.
+
+## Remaining external blockers
+
+1. Stop or transfer ownership of the already-online ngrok endpoint, then rerun
+   the authenticated public/HAI smoke test.
+2. Complete the real Apps Script owner deployment, OAuth/admin review,
+   two-account isolation test, and Marketplace process if publication is wanted.
+3. Re-run desktop/mobile screenshot interaction QA when the Browser or Computer
+   helper exposes a usable page state.

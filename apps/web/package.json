@@ -1,0 +1,29 @@
+{
+  "name": "sheet-shaper-web",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.app.json --noEmit && node scripts/lint.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "6.0.5",
+    "lucide-react": "1.30.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vite": "8.2.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "jsdom": "30.0.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sheet-shaper",
+  "name": "Sheet Shaper",
+  "description": "Review-gated spreadsheet quality analysis and structuring.",
+  "baseUrl": "https://REPLACE_WITH_NGROK_HOST",
+  "manifestPath": "/hai/v1/manifest",
+  "openApiPath": "/openapi.json",
+  "authentication": {
+    "type": "bearer",
+    "environmentVariable": "SHEET_SHAPER_TOKEN"
+  },
+  "safety": {
+    "defaultMode": "read-and-preview",
+    "mutationEnvironmentVariable": "SS_HAI_MUTATIONS_ENABLED",
+    "requiresPreview": true,
+    "requiresAcknowledgement": true,
+    "createsBackupBeforeWrite": true,
+    "validatesReadback": true
+  }
+}

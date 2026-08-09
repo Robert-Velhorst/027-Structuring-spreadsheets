@@ -1,0 +1,14 @@
+import { Eye, RotateCcw } from 'lucide-react'
+import type { History, OperationRecord } from '../types'
+
+type Props={history:History;status:string;query:string;busy:boolean;setStatus:(value:string)=>void;setQuery:(value:string)=>void;refresh:(page:number,status?:string,query?:string)=>void;restore:(operation:OperationRecord)=>void;expanded?:boolean}
+
+export function HistoryTable({history,status,query,busy,setStatus,setQuery,refresh,restore,expanded=false}:Props){
+  return <section className={`history-band ${expanded?'history-page':''}`} aria-labelledby="history-title">
+    <div className="history-heading"><h2 id="history-title">Recent operations</h2><div className="history-filters"><label><span className="sr-only">Filter status</span><select value={status} onChange={event=>{setStatus(event.target.value);refresh(1,event.target.value,query)}}><option value="">All statuses</option><option>APPLIED</option><option>FAILED</option><option>RESTORED</option><option>APPLYING</option></select></label><label><span className="sr-only">Search history</span><input value={query} placeholder="Search history" onChange={event=>setQuery(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')refresh(1,status,event.currentTarget.value)}}/></label><button className="secondary" onClick={()=>refresh(1,'','')} disabled={busy}>Clear filters</button></div></div>
+    <div className="table-wrap"><table className="history-table"><thead><tr><th>Time</th><th>Document</th><th>Target</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead><tbody>{history.items.length?history.items.map(operation=><HistoryRow operation={operation} restore={restore} key={operation.id}/>):<tr><td colSpan={6} className="empty-row">No operations match the current filters.</td></tr>}</tbody></table></div>
+    {expanded&&<div className="pagination"><button className="secondary" disabled={busy||history.page<=1} onClick={()=>refresh(history.page-1)}>Previous</button><span>Page {history.page} of {history.pages}</span><button className="secondary" disabled={busy||history.page>=history.pages} onClick={()=>refresh(history.page+1)}>Next</button></div>}
+  </section>
+}
+
+function HistoryRow({operation,restore}:{operation:OperationRecord;restore:(operation:OperationRecord)=>void}){return <tr className={operation.status==='FAILED'?'failed-row':''}><td>{new Date(operation.createdAt).toLocaleString()}</td><td>{operation.documentName||'Spreadsheet'}</td><td>{operation.summary.target||'Used range'}</td><td><span className={`status status-${operation.status.toLowerCase()}`}>{operation.status}</span></td><td>{operation.errorCode?`Error: ${operation.errorCode}`:`${operation.summary.changedCells} changes${operation.validation?.passed?' - validated':''}`}</td><td><div className="row-actions"><button className="icon-text"><Eye/>View</button>{operation.canRestore&&<button className="icon-text" onClick={()=>restore(operation)}><RotateCcw/>Restore</button>}</div></td></tr>}

@@ -1,0 +1,9 @@
+{
+  "name": "sheet-shaper-site",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}

@@ -6,28 +6,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sheet Shaper</title>
   <style>
-    :root { color-scheme: light; --ink:#17233b; --muted:#5f6b7a; --line:#d8dee9; --paper:#fff; --wash:#f4f7fb; --blue:#1a73e8; --blue2:#0b57d0; --green:#137333; --amber:#a15c00; --red:#b3261e; --shadow:0 1px 2px rgba(16,24,40,.08); }
+    :root { color-scheme:light; --ink:#17233b; --muted:#5f6b7a; --line:#d8dee9; --paper:#fff; --wash:#f4f7fb; --blue:#1a73e8; --blue2:#0b57d0; --green:#137333; --amber:#8a4d00; --red:#b3261e; --shadow:0 1px 2px rgba(16,24,40,.08); }
     * { box-sizing:border-box; }
-    body { margin:0; font:13px/1.45 Arial, sans-serif; color:var(--ink); background:var(--wash); }
-    button, select, input { font:inherit; }
-    button:focus-visible, select:focus-visible, input:focus-visible { outline:3px solid rgba(26,115,232,.28); outline-offset:2px; }
-    .topbar { position:sticky; top:0; z-index:4; background:#102a43; color:#fff; padding:16px; box-shadow:var(--shadow); }
-    .toprow { display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    body { margin:0; font:13px/1.45 Arial,sans-serif; color:var(--ink); background:var(--wash); }
+    button,select,input,textarea { font:inherit; }
+    button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible { outline:3px solid rgba(26,115,232,.28); outline-offset:2px; }
+    .topbar { position:sticky; top:0; z-index:4; background:#102a43; color:#fff; padding:14px 16px; box-shadow:var(--shadow); }
+    .toprow,.row { display:flex; gap:8px; align-items:center; }
+    .toprow,.between { justify-content:space-between; }
     h1 { font-size:19px; margin:0; letter-spacing:-.2px; }
     h2 { font-size:14px; margin:0 0 10px; }
     p { margin:6px 0; }
     .subtle { color:var(--muted); }
     .topbar .subtle { color:#c7d8ea; }
+    .language { width:auto; min-height:30px; background:#fff; color:var(--ink); }
     .badge { display:inline-flex; align-items:center; border-radius:999px; padding:3px 8px; font-size:11px; font-weight:700; background:#dff2e4; color:var(--green); }
     .badge.paused { background:#fce8e6; color:var(--red); }
     main { padding:12px; display:grid; gap:10px; }
     .card { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:13px; box-shadow:var(--shadow); }
     .card.emphasis { border-color:#9ec5ff; background:#f7fbff; }
-    .row { display:flex; gap:8px; align-items:center; }
-    .row.between { justify-content:space-between; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     label { display:block; color:#344054; font-weight:700; margin:9px 0 4px; }
-    input[type=text], input[type=number], select { width:100%; min-height:36px; border:1px solid #aeb8c6; border-radius:6px; padding:7px 9px; background:#fff; color:var(--ink); }
+    input[type=text],input[type=number],input[type=file],select,textarea { width:100%; min-height:36px; border:1px solid #aeb8c6; border-radius:6px; padding:7px 9px; background:#fff; color:var(--ink); }
+    textarea { min-height:110px; resize:vertical; font-family:ui-monospace,Consolas,monospace; }
     select[multiple] { min-height:145px; }
     .check { display:flex; align-items:flex-start; gap:7px; font-weight:400; margin:9px 0; }
     .check input { margin-top:3px; }
@@ -53,222 +54,135 @@
     .warning { color:var(--amber); }
     .history { display:grid; gap:7px; }
     .history-item { border-left:3px solid #9bb9df; padding:7px 8px; background:#f8fafc; }
+    .exception { border-left-color:#e7a7a2; }
     details summary { cursor:pointer; font-weight:700; padding:3px 0; }
     .hidden { display:none !important; }
     .spinner { width:14px; height:14px; border:2px solid #c9d8ea; border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; vertical-align:-2px; }
     @keyframes spin { to { transform:rotate(360deg); } }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (max-width:360px) { .grid2,.metric-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="toprow"><h1>Sheet Shaper</h1><span id="modeBadge" class="badge">Checking…</span></div>
-    <p class="subtle">Preview → backup → transform → validate → restore</p>
+    <div class="toprow"><h1>Sheet Shaper</h1><div class="row"><label class="sr-only" for="language">Language</label><select id="language" class="language"><option value="en">EN</option><option value="nl">NL</option></select><span id="modeBadge" class="badge" data-i18n="checking">Checking...</span></div></div>
+    <p class="subtle" data-i18n="safetyFlow">Preview -> backup -> transform -> validate -> restore</p>
   </header>
   <div id="message" class="message" role="status" aria-live="polite"></div>
   <main>
     <section id="onboarding" class="card emphasis hidden" aria-labelledby="welcomeTitle">
-      <h2 id="welcomeTitle">Safe by default</h2>
-      <p>Sheet Shaper changes only the selected range or the current data region. Every write requires a fresh preview and creates a hidden backup in this spreadsheet.</p>
-      <p>No cell data is sent to an external service. There are no background jobs or automatic emails.</p>
-      <label class="check"><input id="welcomeConfirm" type="checkbox"> <span>I understand that I must review the target and preview before applying a change.</span></label>
-      <button id="finishOnboarding" class="btn primary" disabled>Continue</button>
+      <h2 id="welcomeTitle" data-i18n="safeDefault">Safe by default</h2>
+      <p data-i18n="onboardingOne">Sheet Shaper changes only the selected range or current data region. Every write requires a fresh preview and creates a hidden backup.</p>
+      <p data-i18n="onboardingTwo">No cell data is sent to an external service. There are no background jobs or automatic emails.</p>
+      <label class="check"><input id="welcomeConfirm" type="checkbox"> <span data-i18n="onboardingConfirm">I understand that I must review the target and preview before applying a change.</span></label>
+      <button id="finishOnboarding" class="btn primary" disabled data-i18n="continue">Continue</button>
     </section>
 
     <section class="card" aria-labelledby="targetTitle">
-      <div class="row between"><h2 id="targetTitle">Current target</h2><button id="refresh" class="btn secondary small">Refresh</button></div>
-      <strong id="sheetName">Loading…</strong>
-      <p id="selectionInfo" class="subtle"></p>
-      <div class="row between"><span>Mutation safety stop</span><button id="pauseToggle" class="btn danger small" disabled>Pause changes</button></div>
+      <div class="row between"><h2 id="targetTitle" data-i18n="currentTarget">Current target</h2><button id="refresh" class="btn secondary small" data-i18n="refresh">Refresh</button></div>
+      <strong id="sheetName" data-i18n="loading">Loading...</strong><p id="selectionInfo" class="subtle"></p>
+      <div class="row between"><span data-i18n="safetyStop">Mutation safety stop</span><button id="pauseToggle" class="btn danger small" disabled></button></div>
     </section>
 
     <section class="card" aria-labelledby="workflowTitle">
-      <h2 id="workflowTitle">1. Configure</h2>
-      <label for="scope">Target</label>
-      <select id="scope"><option value="selection">Current selection</option><option value="data">Current sheet data region</option></select>
-      <label for="operations">Operations (Ctrl/Cmd-click for a batch)</label>
+      <h2 id="workflowTitle" data-i18n="configure">1. Configure</h2>
+      <label for="scope" data-i18n="target">Target</label>
+      <select id="scope"><option value="selection" data-i18n="selection">Current selection</option><option value="data" data-i18n="dataRegion">Current sheet data region</option></select>
+      <label for="operations" data-i18n="operations">Operations (Ctrl/Cmd-click for a batch)</label>
       <select id="operations" multiple aria-describedby="operationHelp"></select>
-      <p id="operationHelp" class="subtle">Operations run from top to bottom. Maximum 8.</p>
-      <label class="check"><input id="hasHeader" type="checkbox" checked> <span>First row contains headers (kept out of deduplication and sorting)</span></label>
-      <div id="columnOptions" class="grid2">
-        <div><label for="columns">Target columns</label><input id="columns" type="text" placeholder="All, or 1,3,5"></div>
-        <div><label for="sortColumn">Sort/split column</label><input id="sortColumn" type="number" min="1" value="1"></div>
-      </div>
-      <div class="grid2">
-        <div><label for="delimiter">Split delimiter</label><input id="delimiter" type="text" value=","></div>
-        <div><label for="sortDirection">Sort direction</label><select id="sortDirection"><option value="asc">Ascending</option><option value="desc">Descending</option></select></div>
-      </div>
-      <label class="check"><input id="keepOriginal" type="checkbox"> <span>Keep original column when splitting</span></label>
-      <div class="actions">
-        <button id="analyze" class="btn secondary">Analyze quality</button>
-        <button id="preview" class="btn primary">Create preview</button>
-      </div>
+      <p id="operationHelp" class="subtle" data-i18n="operationHelp">Operations run from top to bottom. Maximum 8.</p>
+      <label class="check"><input id="hasHeader" type="checkbox" checked> <span data-i18n="hasHeader">First row contains headers</span></label>
+      <div class="grid2"><div><label for="columns" data-i18n="targetColumns">Target columns</label><input id="columns" type="text" data-i18n-placeholder="columnsHint"></div><div><label for="sortColumn" data-i18n="sortColumn">Sort/split column</label><input id="sortColumn" type="number" min="1" value="1"></div></div>
+      <div class="grid2"><div><label for="delimiter" data-i18n="splitDelimiter">Split delimiter</label><input id="delimiter" type="text" value=","></div><div><label for="sortDirection" data-i18n="sortDirection">Sort direction</label><select id="sortDirection"><option value="asc" data-i18n="ascending">Ascending</option><option value="desc" data-i18n="descending">Descending</option></select></div></div>
+      <label class="check"><input id="keepOriginal" type="checkbox"> <span data-i18n="keepOriginal">Keep original column when splitting</span></label>
+      <div class="actions"><button id="analyze" class="btn secondary" data-i18n="analyze">Analyze quality</button><button id="preview" class="btn primary" data-i18n="createPreview">Create preview</button></div>
     </section>
 
-    <section id="qualityCard" class="card hidden" aria-labelledby="qualityTitle">
-      <h2 id="qualityTitle">Quality analysis</h2>
-      <div id="qualityMetrics" class="metric-grid"></div>
+    <section id="csvCard" class="card" aria-labelledby="csvTitle">
+      <details><summary id="csvTitle" data-i18n="csvImport">Import CSV safely</summary>
+        <p class="subtle" data-i18n="csvHelp">Paste or choose CSV. Import starts at the selected cell and requires its own preview.</p>
+        <label for="csvFile" data-i18n="csvFile">CSV file (optional)</label><input id="csvFile" type="file" accept=".csv,text/csv,text/plain">
+        <label for="csvText" data-i18n="csvContent">CSV content</label><textarea id="csvText" data-i18n-placeholder="csvHint"></textarea>
+        <label for="csvDelimiter" data-i18n="csvDelimiter">CSV delimiter</label><select id="csvDelimiter"><option value=",">Comma (,)</option><option value=";">Semicolon (;)</option><option value="&#9;">Tab</option></select>
+        <div class="actions"><button id="previewCsv" class="btn primary" data-i18n="previewCsv">Preview CSV import</button></div>
+      </details>
     </section>
+
+    <section id="qualityCard" class="card hidden" aria-labelledby="qualityTitle"><h2 id="qualityTitle" data-i18n="quality">Quality analysis</h2><div id="qualityMetrics" class="metric-grid"></div></section>
 
     <section id="previewCard" class="card emphasis hidden" aria-labelledby="previewTitle">
-      <h2 id="previewTitle">2. Review preview</h2>
-      <p id="previewTarget"></p>
-      <div id="previewMetrics" class="metric-grid"></div>
-      <div id="warnings"></div>
-      <details><summary>Sample differences</summary><div id="diffs"></div></details>
-      <label class="check"><input id="applyConfirm" type="checkbox"> <span>I reviewed this preview and authorize one validated write with a hidden backup.</span></label>
-      <button id="apply" class="btn primary" disabled>Apply once</button>
+      <h2 id="previewTitle" data-i18n="reviewPreview">2. Review preview</h2><p id="previewTarget"></p><div id="previewMetrics" class="metric-grid"></div><div id="warnings"></div>
+      <details><summary data-i18n="sampleDifferences">Sample differences</summary><div id="diffs"></div></details>
+      <label class="check"><input id="applyConfirm" type="checkbox"> <span data-i18n="applyConfirm">I reviewed this preview and authorize one validated write with a hidden backup.</span></label>
+      <button id="apply" class="btn primary" disabled data-i18n="applyOnce">Apply once</button>
     </section>
 
-    <section id="resultCard" class="card hidden" aria-labelledby="resultTitle">
-      <h2 id="resultTitle">3. Validation result</h2>
-      <div id="resultBody"></div>
-      <div class="actions"><button id="restoreLatest" class="btn danger" disabled>Restore from backup</button></div>
-    </section>
+    <section id="resultCard" class="card hidden" aria-labelledby="resultTitle"><h2 id="resultTitle" data-i18n="validationResult">3. Validation result</h2><div id="resultBody"></div><div class="actions"><button id="restoreLatest" class="btn danger" disabled data-i18n="restoreBackup">Restore from backup</button></div></section>
 
-    <section class="card" aria-labelledby="presetTitle">
-      <details><summary id="presetTitle">Presets and local export</summary>
-        <label for="presetName">Preset name</label><input id="presetName" type="text" maxlength="40">
-        <div class="actions"><button id="savePreset" class="btn secondary small">Save settings</button><button id="loadPresets" class="btn secondary small">Refresh presets</button></div>
-        <div id="presetList"></div>
-        <div class="actions"><button id="exportCsv" class="btn secondary small">Download target as CSV</button><button id="supportBundle" class="btn secondary small">Download support bundle</button></div>
-      </details>
-    </section>
+    <section class="card" aria-labelledby="presetTitle"><details><summary id="presetTitle" data-i18n="presetsExport">Presets and local export</summary>
+      <label for="presetName" data-i18n="presetName">Preset name</label><input id="presetName" type="text" maxlength="40">
+      <div class="actions"><button id="savePreset" class="btn secondary small" data-i18n="saveSettings">Save settings</button><button id="loadPresets" class="btn secondary small" data-i18n="refreshPresets">Refresh presets</button></div><div id="presetList"></div>
+      <div class="actions"><button id="exportCsv" class="btn secondary small" data-i18n="downloadCsv">Download target as CSV</button><button id="supportBundle" class="btn secondary small" data-i18n="supportBundle">Download support bundle</button></div>
+    </details></section>
 
     <section class="card" aria-labelledby="historyTitle">
-      <div class="row between"><h2 id="historyTitle">Operation history</h2><button id="refreshHistory" class="btn secondary small">Refresh</button></div>
-      <label class="sr-only" for="historySearch">Filter history</label><input id="historySearch" type="text" placeholder="Filter by status or operation">
+      <div class="row between"><h2 id="historyTitle" data-i18n="history">Operation history</h2><button id="refreshHistory" class="btn secondary small" data-i18n="refresh">Refresh</button></div>
+      <div id="exceptionSummary" class="subtle"></div>
+      <label class="sr-only" for="historySearch" data-i18n="filterHistory">Filter history</label><input id="historySearch" type="text" data-i18n-placeholder="filterHistory">
+      <label class="sr-only" for="historyStatus" data-i18n="filterStatus">Filter status</label><select id="historyStatus"><option value="" data-i18n="allStatuses">All statuses</option><option value="APPLIED">APPLIED</option><option value="FAILED">FAILED</option><option value="UNDONE">UNDONE</option><option value="APPLYING">APPLYING</option></select>
       <div id="history" class="history"></div>
+      <div class="row between"><button id="historyPrev" class="btn secondary small" data-i18n="previous">Previous</button><span id="historyPage" class="subtle"></span><button id="historyNext" class="btn secondary small" data-i18n="next">Next</button></div>
     </section>
 
-    <section class="card" aria-labelledby="privacyTitle">
-      <details><summary id="privacyTitle">Privacy, recovery, and help</summary>
-        <p>Processing stays inside the active spreadsheet and Apps Script. Hidden backups and user-scoped audit metadata are retained locally; only the newest 10 backups are retained.</p>
-        <p>If automatic restore fails, unhide the named backup sheet and copy the affected range manually. Never delete a backup until validation succeeds.</p>
-        <div class="actions"><button id="deleteData" class="btn danger small">Delete my Sheet Shaper data and backups</button></div>
-      </details>
-    </section>
+    <section class="card" aria-labelledby="privacyTitle"><details><summary id="privacyTitle" data-i18n="privacyHelp">Privacy, recovery, and help</summary>
+      <p data-i18n="privacyOne">Processing stays inside the active spreadsheet and Apps Script. Only the newest 10 hidden backups are retained.</p><p data-i18n="privacyTwo">If restore fails, unhide the named backup and copy the affected range manually. Never delete a backup until validation succeeds.</p>
+      <div class="actions"><button id="deleteData" class="btn danger small" data-i18n="deleteData">Delete my Sheet Shaper data and backups</button></div>
+    </details></section>
   </main>
 
   <script>
     'use strict';
-    const state = { bootstrap:null, previewToken:null, latest:null, busy:false };
-    const $ = id => document.getElementById(id);
-
-    function success(handler) { return response => { setBusy(false); if (!response || !response.ok) return showError(response && response.error); handler(response.data); }; }
-    function failure(error) { setBusy(false); showError({ code:'CLIENT_RPC_FAILED', message:error && error.message ? error.message : String(error), nextAction:'Refresh the sidebar and retry.' }); }
-    const api = {
-      bootstrap: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getBootstrap(),
-      onboard: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).acknowledgeOnboarding(),
-      preview: (request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).previewOperation(request),
-      apply: (command, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).applyOperation(command),
-      undo: (id, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).undoOperation(id),
-      analyze: (request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).analyzeCurrentTarget(request),
-      history: (page, size, query, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getOperationHistory(page, size, query),
-      exportCsv: (options, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportCurrentRangeCsv(options),
-      savePreset: (name, request, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).savePreset(name, request),
-      presets: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).listPresets(),
-      deletePreset: (name, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deletePreset(name),
-      pause: (paused, cb) => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).setMutationPause(paused),
-      support: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportSupportBundle(),
-      deleteData: cb => google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deleteMySheetShaperData()
+    const I18N={
+      en:{checking:'Checking...',safetyFlow:'Preview -> backup -> transform -> validate -> restore',safeDefault:'Safe by default',onboardingOne:'Sheet Shaper changes only the selected range or current data region. Every write requires a fresh preview and creates a hidden backup.',onboardingTwo:'No cell data is sent to an external service. There are no background jobs or automatic emails.',onboardingConfirm:'I understand that I must review the target and preview before applying a change.',continue:'Continue',currentTarget:'Current target',refresh:'Refresh',loading:'Loading...',safetyStop:'Mutation safety stop',pause:'Pause changes',resume:'Resume changes',ready:'READY',paused:'PAUSED',configure:'1. Configure',target:'Target',selection:'Current selection',dataRegion:'Current sheet data region',operations:'Operations (Ctrl/Cmd-click for a batch)',operationHelp:'Operations run from top to bottom. Maximum 8.',hasHeader:'First row contains headers',targetColumns:'Target columns',columnsHint:'All, or 1,3,5',sortColumn:'Sort/split column',splitDelimiter:'Split delimiter',sortDirection:'Sort direction',ascending:'Ascending',descending:'Descending',keepOriginal:'Keep original column when splitting',analyze:'Analyze quality',createPreview:'Create preview',csvImport:'Import CSV safely',csvHelp:'Paste or choose CSV. Import starts at the selected cell and requires its own preview.',csvFile:'CSV file (optional)',csvContent:'CSV content',csvHint:'name,email\nAda,ada@example.com',csvDelimiter:'CSV delimiter',previewCsv:'Preview CSV import',quality:'Quality analysis',reviewPreview:'2. Review preview',sampleDifferences:'Sample differences',applyConfirm:'I reviewed this preview and authorize one validated write with a hidden backup.',applyOnce:'Apply once',validationResult:'3. Validation result',restoreBackup:'Restore from backup',presetsExport:'Presets and local export',presetName:'Preset name',saveSettings:'Save settings',refreshPresets:'Refresh presets',downloadCsv:'Download target as CSV',supportBundle:'Download support bundle',history:'Operation history',filterHistory:'Filter by operation, sheet, or range',filterStatus:'Filter status',allStatuses:'All statuses',previous:'Previous',next:'Next',privacyHelp:'Privacy, recovery, and help',privacyOne:'Processing stays inside the active spreadsheet and Apps Script. Only the newest 10 hidden backups are retained.',privacyTwo:'If restore fails, unhide the named backup and copy the affected range manually. Never delete a backup until validation succeeds.',deleteData:'Delete my Sheet Shaper data and backups',working:'Working...',rows:'rows',columns:'columns',merged:'merged cells detected',score:'Score',confidence:'Confidence',empty:'Empty',whitespace:'Whitespace',duplicates:'Duplicates',mixed:'Mixed columns',changed:'Changed cells',before:'Before',after:'After',risk:'Risk',scoreBefore:'Score before',scoreAfter:'Score after',noDiff:'No sample differences.',validationPassed:'Validation passed.',validationFailed:'Validation not available or failed.',backup:'Backup',noHistory:'No operations recorded for you in this spreadsheet.',changes:'changes',restore:'Restore',page:'Page',of:'of',failedOps:'Failed operations',recoverable:'recoverable',noPresets:'No saved presets.',delete:'Delete',previewExpires:'preview expires in',minutes:'minutes',saved:'Safety setup saved.',writeDone:'Write and validation completed. The backup remains available for restore.',restoreDone:'Restore validated.',presetLoaded:'Preset loaded. Create a fresh preview before applying.',presetSaved:'Preset saved for your account.',csvPrepared:'CSV prepared locally in your browser.',supportReady:'Privacy-safe support bundle downloaded.',chooseOperation:'Choose at least one operation.',columnsInvalid:'Columns must be positive numbers separated by commas.',chooseCsv:'Choose or paste CSV content.',csvReadFailed:'The selected file could not be read.',nextAction:'Next',op_smart_trim:'Smart trim',op_remove_duplicates:'Remove duplicate rows',op_uppercase:'UPPERCASE',op_lowercase:'lowercase',op_title_case:'Title Case',op_sentence_case:'Sentence case',op_remove_empty_rows:'Compact empty rows',op_remove_empty_columns:'Compact empty columns',op_split_text:'Split text',op_sort_rows:'Sort rows',op_import_csv:'Import CSV',risk_LOW:'LOW',risk_MEDIUM:'MEDIUM',risk_HIGH:'HIGH'},
+      nl:{checking:'Controleren...',safetyFlow:'Voorbeeld -> back-up -> bewerken -> valideren -> herstellen',safeDefault:'Standaard veilig',onboardingOne:'Sheet Shaper wijzigt alleen de selectie of het huidige gegevensgebied. Elke schrijfactie vereist een nieuw voorbeeld en maakt een verborgen back-up.',onboardingTwo:'Celgegevens worden niet naar een externe dienst gestuurd. Er zijn geen achtergrondtaken of automatische e-mails.',onboardingConfirm:'Ik begrijp dat ik het doel en voorbeeld moet controleren voordat ik een wijziging toepas.',continue:'Doorgaan',currentTarget:'Huidig doel',refresh:'Vernieuwen',loading:'Laden...',safetyStop:'Veiligheidsstop voor wijzigingen',pause:'Wijzigingen pauzeren',resume:'Wijzigingen hervatten',ready:'GEREED',paused:'GEPAUZEERD',configure:'1. Instellen',target:'Doel',selection:'Huidige selectie',dataRegion:'Gegevensgebied van huidig werkblad',operations:'Bewerkingen (Ctrl/Cmd-klik voor een reeks)',operationHelp:'Bewerkingen lopen van boven naar beneden. Maximaal 8.',hasHeader:'Eerste rij bevat kopteksten',targetColumns:'Doelkolommen',columnsHint:'Alle, of 1,3,5',sortColumn:'Kolom voor sorteren/splitsen',splitDelimiter:'Scheidingsteken voor splitsen',sortDirection:'Sorteervolgorde',ascending:'Oplopend',descending:'Aflopend',keepOriginal:'Oorspronkelijke kolom behouden bij splitsen',analyze:'Kwaliteit analyseren',createPreview:'Voorbeeld maken',csvImport:'CSV veilig importeren',csvHelp:'Plak of kies een CSV. Importeren begint bij de geselecteerde cel en vereist een eigen voorbeeld.',csvFile:'CSV-bestand (optioneel)',csvContent:'CSV-inhoud',csvHint:'naam,e-mail\nAda,ada@example.com',csvDelimiter:'CSV-scheidingsteken',previewCsv:'CSV-import bekijken',quality:'Kwaliteitsanalyse',reviewPreview:'2. Voorbeeld controleren',sampleDifferences:'Voorbeeldverschillen',applyConfirm:'Ik heb dit voorbeeld gecontroleerd en geef toestemming voor een gevalideerde schrijfactie met verborgen back-up.',applyOnce:'Eenmaal toepassen',validationResult:'3. Validatieresultaat',restoreBackup:'Herstellen vanuit back-up',presetsExport:'Voorinstellingen en lokale export',presetName:'Naam voorinstelling',saveSettings:'Instellingen opslaan',refreshPresets:'Voorinstellingen vernieuwen',downloadCsv:'Doel als CSV downloaden',supportBundle:'Ondersteuningspakket downloaden',history:'Bewerkingsgeschiedenis',filterHistory:'Filter op bewerking, werkblad of bereik',filterStatus:'Filter op status',allStatuses:'Alle statussen',previous:'Vorige',next:'Volgende',privacyHelp:'Privacy, herstel en hulp',privacyOne:'Verwerking blijft binnen het actieve werkblad en Apps Script. Alleen de nieuwste 10 verborgen back-ups blijven bewaard.',privacyTwo:'Als herstel mislukt, maak dan het genoemde back-upblad zichtbaar en kopieer het betreffende bereik handmatig. Verwijder nooit een back-up voordat validatie slaagt.',deleteData:'Mijn Sheet Shaper-gegevens en back-ups verwijderen',working:'Bezig...',rows:'rijen',columns:'kolommen',merged:'samengevoegde cellen gevonden',score:'Score',confidence:'Zekerheid',empty:'Leeg',whitespace:'Witruimte',duplicates:'Duplicaten',mixed:'Gemengde kolommen',changed:'Gewijzigde cellen',before:'Voor',after:'Na',risk:'Risico',scoreBefore:'Score voor',scoreAfter:'Score na',noDiff:'Geen voorbeeldverschillen.',validationPassed:'Validatie geslaagd.',validationFailed:'Validatie niet beschikbaar of mislukt.',backup:'Back-up',noHistory:'Geen bewerkingen voor u vastgelegd in dit werkblad.',changes:'wijzigingen',restore:'Herstellen',page:'Pagina',of:'van',failedOps:'Mislukte bewerkingen',recoverable:'herstelbaar',noPresets:'Geen opgeslagen voorinstellingen.',delete:'Verwijderen',previewExpires:'voorbeeld verloopt over',minutes:'minuten',saved:'Veiligheidsinstellingen opgeslagen.',writeDone:'Schrijven en valideren voltooid. De back-up blijft beschikbaar voor herstel.',restoreDone:'Herstel gevalideerd.',presetLoaded:'Voorinstelling geladen. Maak een nieuw voorbeeld voordat u toepast.',presetSaved:'Voorinstelling opgeslagen voor uw account.',csvPrepared:'CSV lokaal voorbereid in uw browser.',supportReady:'Privacyveilig ondersteuningspakket gedownload.',chooseOperation:'Kies ten minste een bewerking.',columnsInvalid:'Kolommen moeten positieve getallen zijn, gescheiden door komma\'s.',chooseCsv:'Kies of plak CSV-inhoud.',csvReadFailed:'Het gekozen bestand kon niet worden gelezen.',nextAction:'Volgende stap',op_smart_trim:'Slim bijsnijden',op_remove_duplicates:'Dubbele rijen verwijderen',op_uppercase:'HOOFDLETTERS',op_lowercase:'kleine letters',op_title_case:'Elk Woord Met Hoofdletter',op_sentence_case:'Zin met hoofdletter',op_remove_empty_rows:'Lege rijen verwijderen',op_remove_empty_columns:'Lege kolommen verwijderen',op_split_text:'Tekst splitsen',op_sort_rows:'Rijen sorteren',op_import_csv:'CSV importeren',risk_LOW:'LAAG',risk_MEDIUM:'MIDDEL',risk_HIGH:'HOOG'}
     };
-
-    function setBusy(busy) {
-      state.busy = busy;
-      document.querySelectorAll('button').forEach(button => { if (!button.dataset.keepEnabled) button.disabled = busy; });
-      if (!busy) updateControls();
-      if (busy) showMessage('info', '<span class="spinner"></span> Working…');
-    }
-    function showMessage(type, html) { const node=$('message'); node.className='message show '+type; node.innerHTML=html; }
-    function clearMessage() { $('message').className='message'; $('message').textContent=''; }
-    function showError(error) { const code=error && error.code ? error.code : 'ERROR'; const message=error && error.message ? error.message : 'The request failed.'; const next=error && error.nextAction ? '\nNext: '+error.nextAction : ''; showMessage('error', escapeHtml(code+': '+message+next)); }
-    function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character])); }
-    function updateControls() {
-      const paused=state.bootstrap && state.bootstrap.paused;
-      $('pauseToggle').disabled=state.busy || !state.bootstrap;
-      $('pauseToggle').textContent=paused?'Resume changes':'Pause changes';
-      $('modeBadge').textContent=paused?'PAUSED':'READY'; $('modeBadge').className='badge'+(paused?' paused':'');
-      $('preview').disabled=state.busy || paused;
-      $('apply').disabled=state.busy || paused || !state.previewToken || !$('applyConfirm').checked;
-      $('restoreLatest').disabled=state.busy || paused || !state.latest || !state.latest.canRestore;
-      $('finishOnboarding').disabled=!$('welcomeConfirm').checked || state.busy;
-    }
-
-    function selectedOperations() { return Array.from($('operations').selectedOptions).map(option => option.value); }
-    function parseColumns() {
-      const text=$('columns').value.trim(); if (!text) return [];
-      const columns=text.split(',').map(value=>Number(value.trim())-1);
-      if (columns.some(value=>!Number.isInteger(value)||value<0)) throw new Error('Columns must be positive numbers separated by commas.');
-      return [...new Set(columns)];
-    }
-    function buildRequest() {
-      const types=selectedOperations(); if (!types.length) throw new Error('Choose at least one operation.');
-      const columns=parseColumns(); const column=Math.max(0, Number($('sortColumn').value||1)-1);
-      return { scope:$('scope').value, hasHeader:$('hasHeader').checked, operations:types.map(type=>({ type, options:{ columns, column, delimiter:$('delimiter').value, keepOriginal:$('keepOriginal').checked, direction:$('sortDirection').value } })) };
-    }
-    function resetPreview() { state.previewToken=null; $('previewCard').classList.add('hidden'); $('applyConfirm').checked=false; updateControls(); }
-
-    function load() { setBusy(true); api.bootstrap(data=>{ state.bootstrap=data; state.latest=data.latest; renderBootstrap(data); clearMessage(); api.presets(renderPresets); }); }
-    function renderBootstrap(data) {
-      $('sheetName').textContent=data.sheet.spreadsheetName+' / '+data.sheet.sheetName;
-      $('selectionInfo').textContent=data.sheet.selectionA1+' · '+data.sheet.selectionRows+' rows × '+data.sheet.selectionColumns+' columns'+(data.sheet.hasMergedCells?' · merged cells detected':'');
-      $('operations').innerHTML=data.operations.map(operation=>`<option value="${escapeHtml(operation.type)}">${escapeHtml(operation.label)} · ${escapeHtml(operation.risk)}</option>`).join('');
-      $('operations').options[0].selected=true;
-      $('onboarding').classList.toggle('hidden',!data.settings.firstRun);
-      renderHistory(data.history); renderResult(data.latest); updateControls();
-    }
-    function renderQuality(data) {
-      const quality=data.quality||data;
-      $('qualityMetrics').innerHTML=metric(quality.score,'Score')+metric(quality.confidence,'Confidence')+metric(quality.emptyCells,'Empty')+metric(quality.whitespaceIssues,'Whitespace')+metric(quality.duplicateRows,'Duplicates')+metric(quality.mixedTypeColumns,'Mixed columns');
-      $('qualityCard').classList.remove('hidden');
-    }
-    function metric(value,label) { return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`; }
-    function renderPreview(data) {
-      state.previewToken=data.previewToken; $('previewTarget').textContent=data.target+' · preview expires in '+Math.floor(data.expiresInSeconds/60)+' minutes';
-      const s=data.summary; $('previewMetrics').innerHTML=metric(s.changedCells,'Changed cells')+metric(s.beforeRows+'×'+s.beforeColumns,'Before')+metric(s.afterRows+'×'+s.afterColumns,'After')+metric(s.risk,'Risk')+metric(data.beforeQuality.score,'Score before')+metric(data.afterQuality.score,'Score after');
-      $('warnings').innerHTML=data.warnings.map(warning=>`<p class="warning">⚠ ${escapeHtml(warning)}</p>`).join('');
-      $('diffs').innerHTML=data.examples.length?data.examples.map(diff=>`<div class="diff"><span>R${diff.row}C${diff.column}</span><code title="${escapeHtml(diff.before)}">${escapeHtml(diff.before)}</code><code title="${escapeHtml(diff.after)}">${escapeHtml(diff.after)}</code></div>`).join(''):'<p class="subtle">No sample differences.</p>';
-      $('previewCard').classList.remove('hidden'); $('applyConfirm').checked=false; clearMessage(); updateControls();
-    }
-    function renderResult(record) {
-      state.latest=record; if (!record) { $('resultCard').classList.add('hidden'); updateControls(); return; }
-      const validation=record.validation; $('resultBody').innerHTML=`<p><span class="badge${record.status==='APPLIED'?'':' paused'}">${escapeHtml(record.status)}</span> ${escapeHtml(record.sheetName+'!'+record.rangeA1)}</p><p>${escapeHtml(record.operations.map(item=>item.type).join(' → '))}</p><p>${validation&&validation.passed?'Validation passed.':'Validation not available or failed.'} Backup: <strong>${escapeHtml(record.backupSheetName||'unavailable')}</strong></p>`;
-      $('resultCard').classList.remove('hidden'); updateControls();
-    }
-    function renderHistory(data) {
-      $('history').innerHTML=data.items.length?data.items.map(item=>`<div class="history-item"><div class="row between"><strong>${escapeHtml(item.status)}</strong><span class="subtle">${escapeHtml(item.createdAt.slice(0,19).replace('T',' '))}Z</span></div><div>${escapeHtml(item.operations.map(operation=>operation.type).join(' → '))}</div><div class="subtle">${escapeHtml(item.sheetName+'!'+item.rangeA1)} · ${escapeHtml(item.summary.changedCells)} changes</div></div>`).join(''):'<p class="subtle">No operations recorded for you in this spreadsheet.</p>';
-    }
-    function renderPresets(data) {
-      $('presetList').innerHTML=data.presets.length?data.presets.map(preset=>`<div class="row between"><button class="btn secondary small preset-load" data-name="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}</button><button class="btn danger small preset-delete" data-name="${escapeHtml(preset.name)}">Delete</button></div>`).join(''):'<p class="subtle">No saved presets.</p>';
-      document.querySelectorAll('.preset-load').forEach(button=>button.addEventListener('click',()=>applyPreset(data.presets.find(item=>item.name===button.dataset.name))));
-      document.querySelectorAll('.preset-delete').forEach(button=>button.addEventListener('click',()=>{ if(confirm('Delete preset "'+button.dataset.name+'"?')) { setBusy(true); api.deletePreset(button.dataset.name,()=>api.presets(renderPresets)); } }));
-    }
-    function applyPreset(preset) {
-      $('scope').value=preset.request.scope; $('hasHeader').checked=preset.request.hasHeader;
-      const types=preset.request.operations.map(item=>item.type); Array.from($('operations').options).forEach(option=>option.selected=types.includes(option.value));
-      const first=preset.request.operations[0]&&preset.request.operations[0].options||{}; $('columns').value=(first.columns||[]).map(value=>value+1).join(','); $('sortColumn').value=(first.column||0)+1; $('delimiter').value=first.delimiter||','; $('keepOriginal').checked=first.keepOriginal===true; $('sortDirection').value=first.direction||'asc'; resetPreview(); showMessage('info','Preset loaded. Create a fresh preview before applying.');
-    }
-    function download(data) { const blob=new Blob([data.content],{type:data.mimeType}); const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download=data.filename; document.body.appendChild(link); link.click(); setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1000); }
-
-    $('welcomeConfirm').addEventListener('change',updateControls);
-    $('finishOnboarding').addEventListener('click',()=>{setBusy(true);api.onboard(()=>{$('onboarding').classList.add('hidden');showMessage('success','Safety setup saved.');});});
-    $('refresh').addEventListener('click',load);
-    $('pauseToggle').addEventListener('click',()=>{const paused=!state.bootstrap.paused;setBusy(true);api.pause(paused,data=>{state.bootstrap.paused=data.paused;showMessage('info',data.paused?'Changes paused. Preview and apply are disabled.':'Changes resumed.');updateControls();});});
-    ['scope','operations','hasHeader','columns','sortColumn','delimiter','keepOriginal','sortDirection'].forEach(id=>$(id).addEventListener('change',resetPreview));
-    $('analyze').addEventListener('click',()=>{try{setBusy(true);api.analyze(buildRequest(),data=>{renderQuality(data);clearMessage();});}catch(error){showError({code:'INVALID_INPUT',message:error.message});}});
-    $('preview').addEventListener('click',()=>{try{setBusy(true);api.preview(buildRequest(),renderPreview);}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});
-    $('applyConfirm').addEventListener('change',updateControls);
-    $('apply').addEventListener('click',()=>{if(!state.previewToken)return;setBusy(true);api.apply({previewToken:state.previewToken,acknowledged:true,idempotencyKey:crypto.randomUUID?crypto.randomUUID():String(Date.now())},record=>{resetPreview();renderResult(record);showMessage('success','Write and validation completed. The backup remains available for restore.');api.history(1,8,'',renderHistory);});});
-    $('restoreLatest').addEventListener('click',()=>{if(!state.latest||!confirm('Restore the affected range from '+state.latest.backupSheetName+'?'))return;setBusy(true);api.undo(state.latest.id,record=>{renderResult(record);showMessage('success','Restore validated.');api.history(1,8,'',renderHistory);});});
-    $('refreshHistory').addEventListener('click',()=>{setBusy(true);api.history(1,8,$('historySearch').value,renderHistory);});
-    $('historySearch').addEventListener('input',()=>api.history(1,8,$('historySearch').value,renderHistory));
-    $('savePreset').addEventListener('click',()=>{try{setBusy(true);api.savePreset($('presetName').value,buildRequest(),data=>{renderPresets(data);showMessage('success','Preset saved for your account.');});}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});
-    $('loadPresets').addEventListener('click',()=>{setBusy(true);api.presets(renderPresets);});
-    $('exportCsv').addEventListener('click',()=>{setBusy(true);api.exportCsv({scope:$('scope').value,delimiter:','},data=>{download(data);showMessage('success','CSV prepared locally in your browser.');});});
-    $('supportBundle').addEventListener('click',()=>{setBusy(true);api.support(data=>{download(data);showMessage('success','Privacy-safe support bundle downloaded.');});});
-    $('deleteData').addEventListener('click',()=>{if(!confirm('Delete your Sheet Shaper history, presets, settings, and owned hidden backups for this spreadsheet? This cannot be undone.'))return;setBusy(true);api.deleteData(data=>{showMessage('success','Deleted '+data.deletedRecords+' records and '+data.deletedBackups+' backups.');load();});});
-    document.addEventListener('DOMContentLoaded',load);
+    const state={bootstrap:null,previewToken:null,previewKind:null,csvText:'',latest:null,busy:false,language:'en',historyPage:1,historyPages:1,historyQuery:'',historyStatus:''};
+    const $=id=>document.getElementById(id); const t=(key,fallback)=>I18N[state.language][key]||I18N.en[key]||fallback||key;
+    function success(handler){return response=>{setBusy(false);if(!response||!response.ok)return showError(response&&response.error);handler(response.data);};}
+    function failure(error){setBusy(false);showError({code:'CLIENT_RPC_FAILED',message:error&&error.message?error.message:String(error),nextAction:'Refresh the sidebar and retry.'});}
+    const runner=()=>google.script.run.withSuccessHandler;
+    const api={
+      bootstrap:cb=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getBootstrap(),language:(value,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).setLanguage(value),onboard:cb=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).acknowledgeOnboarding(),preview:(request,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).previewOperation(request),previewCsv:(text,options,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).previewCsvImport(text,options),apply:(command,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).applyOperation(command),applyCsv:(command,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).applyCsvImport(command),undo:(id,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).undoOperation(id),analyze:(request,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).analyzeCurrentTarget(request),history:(page,size,query,status,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).getOperationHistory(page,size,query,status),exportCsv:(options,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportCurrentRangeCsv(options),savePreset:(name,request,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).savePreset(name,request),presets:cb=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).listPresets(),deletePreset:(name,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deletePreset(name),pause:(paused,cb)=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).setMutationPause(paused),support:cb=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).exportSupportBundle(),deleteData:cb=>google.script.run.withSuccessHandler(success(cb)).withFailureHandler(failure).deleteMySheetShaperData()};
+    function escapeHtml(value){return String(value).replace(/[&<>'"]/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));}
+    function applyLanguage(){document.documentElement.lang=state.language;$('language').value=state.language;document.querySelectorAll('[data-i18n]').forEach(node=>{node.textContent=t(node.dataset.i18n);});document.querySelectorAll('[data-i18n-placeholder]').forEach(node=>{node.placeholder=t(node.dataset.i18nPlaceholder);});if(state.bootstrap)renderBootstrap(state.bootstrap,true);updateControls();}
+    function setBusy(busy){state.busy=busy;document.querySelectorAll('button').forEach(button=>button.disabled=busy);if(!busy)updateControls();if(busy)showMessage('info','<span class="spinner"></span> '+escapeHtml(t('working')));}
+    function showMessage(type,html){const node=$('message');node.className='message show '+type;node.innerHTML=html;}
+    function clearMessage(){$('message').className='message';$('message').textContent='';}
+    function showError(error){const code=error&&error.code?error.code:'ERROR';const message=error&&error.message?error.message:'The request failed.';const next=error&&error.nextAction?'\n'+t('nextAction')+': '+error.nextAction:'';showMessage('error',escapeHtml(code+': '+message+next));}
+    function updateControls(){const paused=state.bootstrap&&state.bootstrap.paused;$('pauseToggle').disabled=state.busy||!state.bootstrap;$('pauseToggle').textContent=paused?t('resume'):t('pause');$('modeBadge').textContent=paused?t('paused'):t('ready');$('modeBadge').className='badge'+(paused?' paused':'');$('preview').disabled=state.busy||paused;$('previewCsv').disabled=state.busy||paused;$('apply').disabled=state.busy||paused||!state.previewToken||!$('applyConfirm').checked;$('restoreLatest').disabled=state.busy||paused||!state.latest||!state.latest.canRestore;$('finishOnboarding').disabled=!$('welcomeConfirm').checked||state.busy;$('historyPrev').disabled=state.busy||state.historyPage<=1;$('historyNext').disabled=state.busy||state.historyPage>=state.historyPages;document.querySelectorAll('.history-restore').forEach(button=>button.disabled=state.busy||paused);}
+    function selectedOperations(){return Array.from($('operations').selectedOptions).map(option=>option.value);}
+    function parseColumns(){const text=$('columns').value.trim();if(!text)return[];const columns=text.split(',').map(value=>Number(value.trim())-1);if(columns.some(value=>!Number.isInteger(value)||value<0))throw new Error(t('columnsInvalid'));return[...new Set(columns)];}
+    function buildRequest(){const types=selectedOperations();if(!types.length)throw new Error(t('chooseOperation'));const columns=parseColumns();const column=Math.max(0,Number($('sortColumn').value||1)-1);return{scope:$('scope').value,hasHeader:$('hasHeader').checked,operations:types.map(type=>({type,options:{columns,column,delimiter:$('delimiter').value,keepOriginal:$('keepOriginal').checked,direction:$('sortDirection').value}}))};}
+    function resetPreview(){state.previewToken=null;state.previewKind=null;$('previewCard').classList.add('hidden');$('applyConfirm').checked=false;updateControls();}
+    function load(){setBusy(true);api.bootstrap(data=>{state.bootstrap=data;state.latest=data.latest;state.language=data.settings.language==='nl'?'nl':'en';applyLanguage();clearMessage();api.presets(renderPresets);});}
+    function renderBootstrap(data,translationOnly){$('sheetName').textContent=data.sheet.spreadsheetName+' / '+data.sheet.sheetName;$('selectionInfo').textContent=data.sheet.selectionA1+' - '+data.sheet.selectionRows+' '+t('rows')+' x '+data.sheet.selectionColumns+' '+t('columns')+(data.sheet.hasMergedCells?' - '+t('merged'):'');const selected=translationOnly?selectedOperations():[];$('operations').innerHTML=data.operations.map(operation=>`<option value="${escapeHtml(operation.type)}">${escapeHtml(t('op_'+operation.type,operation.label))} - ${escapeHtml(t('risk_'+operation.risk,operation.risk))}</option>`).join('');if(selected.length)Array.from($('operations').options).forEach(option=>option.selected=selected.includes(option.value));else if($('operations').options.length)$('operations').options[0].selected=true;$('onboarding').classList.toggle('hidden',!data.settings.firstRun);$('csvCard').classList.toggle('hidden',data.featureFlags&&data.featureFlags.csvImport===false);if(!translationOnly){renderHistory(data.history);renderResult(data.latest);}updateControls();}
+    function metric(value,label){return`<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;}
+    function renderQuality(data){const q=data.quality||data;$('qualityMetrics').innerHTML=metric(q.score,t('score'))+metric(q.confidence,t('confidence'))+metric(q.emptyCells,t('empty'))+metric(q.whitespaceIssues,t('whitespace'))+metric(q.duplicateRows,t('duplicates'))+metric(q.mixedTypeColumns,t('mixed'));$('qualityCard').classList.remove('hidden');}
+    function renderPreview(data,kind){state.previewToken=data.previewToken;state.previewKind=kind||'transform';$('previewTarget').textContent=data.target+' - '+t('previewExpires')+' '+Math.floor(data.expiresInSeconds/60)+' '+t('minutes');const s=data.summary;$('previewMetrics').innerHTML=metric(s.changedCells,t('changed'))+metric(s.beforeRows+'x'+s.beforeColumns,t('before'))+metric(s.afterRows+'x'+s.afterColumns,t('after'))+metric(t('risk_'+s.risk,s.risk),t('risk'))+metric(data.beforeQuality.score,t('scoreBefore'))+metric(data.afterQuality.score,t('scoreAfter'));$('warnings').innerHTML=data.warnings.map(warning=>`<p class="warning">&#9888; ${escapeHtml(warning)}</p>`).join('');$('diffs').innerHTML=data.examples.length?data.examples.map(diff=>`<div class="diff"><span>R${diff.row}C${diff.column}</span><code title="${escapeHtml(diff.before)}">${escapeHtml(diff.before)}</code><code title="${escapeHtml(diff.after)}">${escapeHtml(diff.after)}</code></div>`).join(''):`<p class="subtle">${escapeHtml(t('noDiff'))}</p>`;$('previewCard').classList.remove('hidden');$('applyConfirm').checked=false;clearMessage();updateControls();}
+    function operationNames(items){return(items||[]).map(item=>t('op_'+item.type,item.type)).join(' -> ');}
+    function renderResult(record){state.latest=record;if(!record){$('resultCard').classList.add('hidden');updateControls();return;}const validation=record.validation;$('resultBody').innerHTML=`<p><span class="badge${record.status==='APPLIED'?'':' paused'}">${escapeHtml(record.status)}</span> ${escapeHtml(record.sheetName+'!'+record.rangeA1)}</p><p>${escapeHtml(operationNames(record.operations))}</p><p>${escapeHtml(validation&&validation.passed?t('validationPassed'):t('validationFailed'))} ${escapeHtml(t('backup'))}: <strong>${escapeHtml(record.backupSheetName||'unavailable')}</strong></p>`;$('resultCard').classList.remove('hidden');updateControls();}
+    function loadHistory(page){state.historyPage=page||1;api.history(state.historyPage,8,state.historyQuery,state.historyStatus,renderHistory);}
+    function renderHistory(data){state.historyPage=data.page;state.historyPages=data.pages;const counts=data.statusCounts||{};$('exceptionSummary').textContent=t('failedOps')+': '+(counts.FAILED||0)+' - '+data.items.filter(item=>item.canRestore).length+' '+t('recoverable');$('history').innerHTML=data.items.length?data.items.map(item=>`<div class="history-item${item.status==='FAILED'?' exception':''}"><div class="row between"><strong>${escapeHtml(item.status)}</strong><span class="subtle">${escapeHtml(item.createdAt.slice(0,19).replace('T',' '))}Z</span></div><div>${escapeHtml(operationNames(item.operations))}</div><div class="subtle">${escapeHtml(item.sheetName+'!'+item.rangeA1)} - ${escapeHtml(item.summary.changedCells)} ${escapeHtml(t('changes'))}</div>${item.canRestore?`<button class="btn danger small history-restore" data-id="${escapeHtml(item.id)}" data-backup="${escapeHtml(item.backupSheetName||'')}">${escapeHtml(t('restore'))}</button>`:''}</div>`).join(''):`<p class="subtle">${escapeHtml(t('noHistory'))}</p>`;$('historyPage').textContent=t('page')+' '+data.page+' '+t('of')+' '+data.pages;document.querySelectorAll('.history-restore').forEach(button=>button.addEventListener('click',()=>restoreRecord(button.dataset.id,button.dataset.backup)));updateControls();}
+    function renderPresets(data){$('presetList').innerHTML=data.presets.length?data.presets.map(preset=>`<div class="row between"><button class="btn secondary small preset-load" data-name="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}</button><button class="btn danger small preset-delete" data-name="${escapeHtml(preset.name)}">${escapeHtml(t('delete'))}</button></div>`).join(''):`<p class="subtle">${escapeHtml(t('noPresets'))}</p>`;document.querySelectorAll('.preset-load').forEach(button=>button.addEventListener('click',()=>applyPreset(data.presets.find(item=>item.name===button.dataset.name))));document.querySelectorAll('.preset-delete').forEach(button=>button.addEventListener('click',()=>{if(confirm(t('delete')+' "'+button.dataset.name+'"?')){setBusy(true);api.deletePreset(button.dataset.name,()=>api.presets(renderPresets));}}));}
+    function applyPreset(preset){$('scope').value=preset.request.scope;$('hasHeader').checked=preset.request.hasHeader;const types=preset.request.operations.map(item=>item.type);Array.from($('operations').options).forEach(option=>option.selected=types.includes(option.value));const first=preset.request.operations[0]&&preset.request.operations[0].options||{};$('columns').value=(first.columns||[]).map(value=>value+1).join(',');$('sortColumn').value=(first.column||0)+1;$('delimiter').value=first.delimiter||',';$('keepOriginal').checked=first.keepOriginal===true;$('sortDirection').value=first.direction||'asc';resetPreview();showMessage('info',escapeHtml(t('presetLoaded')));}
+    function restoreRecord(id,backup){if(!id||!confirm(t('restore')+' '+backup+'?'))return;setBusy(true);api.undo(id,record=>{renderResult(record);showMessage('success',escapeHtml(t('restoreDone')));loadHistory(state.historyPage);});}
+    function download(data){const blob=new Blob([data.content],{type:data.mimeType});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=data.filename;document.body.appendChild(link);link.click();setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1000);}
+    $('language').addEventListener('change',()=>{state.language=$('language').value;applyLanguage();api.language(state.language,()=>{});});$('welcomeConfirm').addEventListener('change',updateControls);$('finishOnboarding').addEventListener('click',()=>{setBusy(true);api.onboard(()=>{$('onboarding').classList.add('hidden');showMessage('success',escapeHtml(t('saved')));});});$('refresh').addEventListener('click',load);$('pauseToggle').addEventListener('click',()=>{const paused=!state.bootstrap.paused;setBusy(true);api.pause(paused,data=>{state.bootstrap.paused=data.paused;updateControls();});});
+    ['scope','operations','hasHeader','columns','sortColumn','delimiter','keepOriginal','sortDirection'].forEach(id=>$(id).addEventListener('change',resetPreview));$('analyze').addEventListener('click',()=>{try{setBusy(true);api.analyze(buildRequest(),data=>{renderQuality(data);clearMessage();});}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});$('preview').addEventListener('click',()=>{try{setBusy(true);api.preview(buildRequest(),data=>renderPreview(data,'transform'));}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});
+    $('csvFile').addEventListener('change',event=>{const file=event.target.files&&event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{$('csvText').value=String(reader.result||'');resetPreview();};reader.onerror=()=>showError({code:'FILE_READ_FAILED',message:t('csvReadFailed')});reader.readAsText(file);});$('csvText').addEventListener('input',resetPreview);$('csvDelimiter').addEventListener('change',resetPreview);$('previewCsv').addEventListener('click',()=>{state.csvText=$('csvText').value;if(!state.csvText)return showError({code:'EMPTY_CSV',message:t('chooseCsv')});setBusy(true);api.previewCsv(state.csvText,{delimiter:$('csvDelimiter').value,hasHeader:$('hasHeader').checked},data=>renderPreview(data,'csv'));});
+    $('applyConfirm').addEventListener('change',updateControls);$('apply').addEventListener('click',()=>{if(!state.previewToken)return;setBusy(true);const key=crypto.randomUUID?crypto.randomUUID():String(Date.now());const done=record=>{resetPreview();renderResult(record);showMessage('success',escapeHtml(t('writeDone')));loadHistory(1);};if(state.previewKind==='csv')api.applyCsv({previewToken:state.previewToken,csvText:state.csvText,acknowledged:true,idempotencyKey:key},done);else api.apply({previewToken:state.previewToken,acknowledged:true,idempotencyKey:key},done);});$('restoreLatest').addEventListener('click',()=>state.latest&&restoreRecord(state.latest.id,state.latest.backupSheetName));
+    $('refreshHistory').addEventListener('click',()=>loadHistory(state.historyPage));let searchTimer;$('historySearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.historyQuery=$('historySearch').value;loadHistory(1);},250);});$('historyStatus').addEventListener('change',()=>{state.historyStatus=$('historyStatus').value;loadHistory(1);});$('historyPrev').addEventListener('click',()=>loadHistory(state.historyPage-1));$('historyNext').addEventListener('click',()=>loadHistory(state.historyPage+1));
+    $('savePreset').addEventListener('click',()=>{try{setBusy(true);api.savePreset($('presetName').value,buildRequest(),data=>{renderPresets(data);showMessage('success',escapeHtml(t('presetSaved')));});}catch(error){setBusy(false);showError({code:'INVALID_INPUT',message:error.message});}});$('loadPresets').addEventListener('click',()=>{setBusy(true);api.presets(renderPresets);});$('exportCsv').addEventListener('click',()=>{setBusy(true);api.exportCsv({scope:$('scope').value,delimiter:','},data=>{download(data);showMessage('success',escapeHtml(t('csvPrepared')));});});$('supportBundle').addEventListener('click',()=>{setBusy(true);api.support(data=>{download(data);showMessage('success',escapeHtml(t('supportReady')));});});$('deleteData').addEventListener('click',()=>{if(!confirm(t('deleteData')+'?'))return;setBusy(true);api.deleteData(()=>load());});document.addEventListener('DOMContentLoaded',load);
   </script>
 </body>
 </html>

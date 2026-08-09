@@ -8,6 +8,13 @@ var SS_PREVIEW_SECONDS = 600;
 var SS_HISTORY_LIMIT = 30;
 var SS_BACKUP_LIMIT = 10;
 var SS_MIN_MUTATION_INTERVAL_MS = 1500;
+var SS_MAX_CSV_CHARACTERS = 500000;
+var SS_FEATURE_FLAGS = {
+  csvImport: true,
+  bilingualUi: true,
+  historyPagination: true,
+  exceptionRecovery: true
+};
 
 function onOpen(e) {
   SpreadsheetApp.getUi().createAddonMenu()
@@ -55,6 +62,7 @@ function getBootstrap() {
       authorized: true,
       paused: store.getProperty(ssKey(namespace, 'PAUSED')) === 'true',
       settings: settings,
+      featureFlags: SS_FEATURE_FLAGS,
       sheet: {
         spreadsheetName: spreadsheet.getName(),
         sheetName: sheet.getName(),
@@ -78,10 +86,22 @@ function getBootstrap() {
       operations: Object.keys(SS_OPERATION_DEFINITIONS).map(function(key) {
         return { type: key, label: SS_OPERATION_DEFINITIONS[key].label, risk: SS_OPERATION_DEFINITIONS[key].risk };
       }),
-      history: ssHistory(spreadsheet, 1, 8, ''),
+      history: ssHistory(spreadsheet, 1, 8, '', ''),
       latest: ssLatestOperation(spreadsheet)
     };
   }, 'REFRESH_FAILED');
+}
+
+function setLanguage(language) {
+  return ssRpc(function() {
+    var spreadsheet = ssRequireSpreadsheet();
+    var store = ssUserStore();
+    var key = ssKey(ssNamespace(spreadsheet), 'SETTINGS');
+    var settings = ssReadJson(store, key, { firstRun: true, requireAcknowledgement: true });
+    settings.language = language === 'nl' ? 'nl' : 'en';
+    store.setProperty(key, JSON.stringify(settings));
+    return { language: settings.language };
+  }, 'SETTINGS_FAILED');
 }
 
 function acknowledgeOnboarding() {
@@ -130,6 +150,156 @@ function previewOperation(request) {
       warnings: ssPreviewWarnings(context, preview)
     };
   }, 'PREVIEW_FAILED');
+}
+
+function previewCsvImport(csvText, options) {
+  return ssRpc(function() {
+    var context = ssReadCsvContext(csvText, options);
+    var differences = ssDifferenceSummary(context.beforeGrid, context.outputGrid, 12);
+    var token = Utilities.getUuid();
+    var payload = {
+      kind: 'CSV_IMPORT',
+      token: token,
+      owner: ssOwnerKey(),
+      spreadsheetId: context.spreadsheet.getId(),
+      sheetId: context.sheet.getSheetId(),
+      rangeA1: context.outputRange.getA1Notation(),
+      startRow: context.outputRange.getRow(),
+      startColumn: context.outputRange.getColumn(),
+      inputRows: context.outputRange.getNumRows(),
+      inputColumns: context.outputRange.getNumColumns(),
+      inputDigest: ssDigestGrid(context.beforeGrid),
+      csvDigest: ssHash(String(csvText) + '\n' + context.delimiter),
+      delimiter: context.delimiter,
+      hasHeader: context.hasHeader,
+      createdAt: new Date().toISOString()
+    };
+    CacheService.getUserCache().put(ssPreviewKey(token), JSON.stringify(payload), SS_PREVIEW_SECONDS);
+    var formulaCells = context.beforeGrid.reduce(function(total, row) {
+      return total + row.filter(function(cell) { return Boolean(cell.formula); }).length;
+    }, 0);
+    var warnings = [
+      'CSV content stays in this browser request and is not stored in operation history.',
+      'A hidden in-spreadsheet backup is created before the write.'
+    ];
+    if (formulaCells) warnings.push('The import will replace ' + formulaCells + ' formula cell(s) in the target.');
+    return {
+      previewToken: token,
+      kind: 'CSV_IMPORT',
+      expiresInSeconds: SS_PREVIEW_SECONDS,
+      target: context.sheet.getName() + '!' + context.outputRange.getA1Notation(),
+      summary: {
+        beforeRows: context.beforeGrid.length,
+        beforeColumns: context.beforeGrid[0] ? context.beforeGrid[0].length : 0,
+        afterRows: context.outputGrid.length,
+        afterColumns: context.outputGrid[0] ? context.outputGrid[0].length : 0,
+        changedCells: differences.changedCells,
+        risk: 'HIGH',
+        backupRequired: true,
+        retrySafeBeforeApply: true,
+        operationLabels: ['Import CSV']
+      },
+      examples: differences.examples,
+      beforeQuality: ssQualityReport(context.beforeGrid, context.hasHeader),
+      afterQuality: ssQualityReport(context.outputGrid, context.hasHeader),
+      warnings: warnings
+    };
+  }, 'CSV_PREVIEW_FAILED');
+}
+
+function applyCsvImport(command) {
+  return ssRpc(function() {
+    command = command || {};
+    if (command.acknowledged !== true) throw ssError('ACKNOWLEDGEMENT_REQUIRED', 'Review and confirm the CSV preview before importing.');
+    if (!command.previewToken) throw ssError('PREVIEW_REQUIRED', 'Create a fresh CSV preview before importing.');
+    var csvText = String(command.csvText == null ? '' : command.csvText);
+    var cache = CacheService.getUserCache();
+    var raw = cache.get(ssPreviewKey(command.previewToken));
+    if (!raw) throw ssError('PREVIEW_EXPIRED', 'The CSV preview expired or was already used. Preview it again.');
+    var previewRecord = JSON.parse(raw);
+    if (previewRecord.kind !== 'CSV_IMPORT') throw ssError('INVALID_PREVIEW', 'This preview is not a CSV import preview.');
+    if (previewRecord.owner !== ssOwnerKey()) throw ssError('NOT_AUTHORIZED', 'This preview belongs to a different user.');
+    if (ssHash(csvText + '\n' + previewRecord.delimiter) !== previewRecord.csvDigest) {
+      throw ssError('CSV_CHANGED', 'The CSV content changed after preview. Create a fresh preview.');
+    }
+    var spreadsheet = ssRequireSpreadsheet();
+    var namespace = ssNamespace(spreadsheet);
+    ssRequireMutationsEnabled(spreadsheet);
+    ssEnforceRateLimit(namespace);
+    var idempotencyKey = String(command.idempotencyKey || command.previewToken);
+    var prior = ssFindIdempotentResult(namespace, idempotencyKey);
+    if (prior) return prior;
+    var lock = LockService.getDocumentLock();
+    if (!lock.tryLock(5000)) throw ssError('BUSY', 'Another Sheet Shaper write is active. Retry after it finishes.');
+    try {
+      if (previewRecord.spreadsheetId !== spreadsheet.getId()) throw ssError('WRONG_SPREADSHEET', 'Return to the spreadsheet used for the preview.');
+      var sheet = ssSheetById(spreadsheet, previewRecord.sheetId);
+      if (!sheet) throw ssError('SHEET_NOT_FOUND', 'The target sheet no longer exists.');
+      var range = sheet.getRange(previewRecord.rangeA1);
+      ssAssertWritable(range);
+      var beforeGrid = ssReadGrid(range);
+      if (ssDigestGrid(beforeGrid) !== previewRecord.inputDigest) throw ssError('STALE_PREVIEW', 'The target changed after preview. No changes were made; preview again.');
+      var values = ssParseCsv(csvText, previewRecord.delimiter);
+      var outputGrid = ssMakeGrid(values);
+      if (outputGrid.length !== previewRecord.inputRows || (outputGrid[0] ? outputGrid[0].length : 0) !== previewRecord.inputColumns) {
+        throw ssError('CSV_CHANGED', 'The parsed CSV shape changed after preview. Create a fresh preview.');
+      }
+      var differences = ssDifferenceSummary(beforeGrid, outputGrid, 12);
+      var operationId = Utilities.getUuid();
+      var backup = ssCreateBackup(spreadsheet, sheet, operationId);
+      var record = {
+        id: operationId,
+        version: SS_VERSION,
+        owner: ssOwnerKey(),
+        spreadsheetId: spreadsheet.getId(),
+        sheetId: sheet.getSheetId(),
+        sheetName: sheet.getName(),
+        rangeA1: range.getA1Notation(),
+        startRow: range.getRow(),
+        startColumn: range.getColumn(),
+        beforeRows: range.getNumRows(),
+        beforeColumns: range.getNumColumns(),
+        afterRows: outputGrid.length,
+        afterColumns: outputGrid[0] ? outputGrid[0].length : 0,
+        inputDigest: previewRecord.inputDigest,
+        expectedDigest: ssDigestGrid(outputGrid),
+        backupSheetId: backup.getSheetId(),
+        backupSheetName: backup.getName(),
+        status: 'APPLYING',
+        operations: [{ type: 'import_csv', options: { delimiter: previewRecord.delimiter } }],
+        summary: { beforeRows: range.getNumRows(), beforeColumns: range.getNumColumns(), afterRows: outputGrid.length, afterColumns: outputGrid[0] ? outputGrid[0].length : 0, changedCells: differences.changedCells, risk: 'HIGH' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      ssSaveOperation(spreadsheet, record);
+      try {
+        ssWriteResult(sheet, range, outputGrid);
+        var actualGrid = ssReadGrid(sheet.getRange(record.startRow, record.startColumn, record.afterRows, record.afterColumns));
+        record.actualDigest = ssDigestGrid(actualGrid);
+        record.validation = { passed: record.actualDigest === record.expectedDigest, checkedAt: new Date().toISOString(), quality: ssQualityReport(actualGrid, previewRecord.hasHeader) };
+        if (!record.validation.passed) throw ssError('VALIDATION_FAILED', 'The CSV write did not match the preview. Use Restore now.');
+        record.status = 'APPLIED';
+        record.updatedAt = new Date().toISOString();
+        ssSaveOperation(spreadsheet, record);
+        var result = ssPublicOperation(record);
+        ssBestEffort('post_csv_cleanup', function() {
+          ssSaveIdempotentResult(namespace, idempotencyKey, result);
+          cache.remove(ssPreviewKey(command.previewToken));
+          ssPruneHistory(spreadsheet, ssUserStore(), namespace);
+          spreadsheet.toast('CSV import validated. Backup: ' + backup.getName(), 'Sheet Shaper', 5);
+        });
+        return result;
+      } catch (writeError) {
+        record.status = 'FAILED';
+        record.errorCode = writeError.code || 'WRITE_FAILED';
+        record.updatedAt = new Date().toISOString();
+        ssSaveOperation(spreadsheet, record);
+        throw writeError;
+      }
+    } finally {
+      lock.releaseLock();
+    }
+  }, 'CSV_APPLY_FAILED');
 }
 
 function applyOperation(command) {
@@ -280,9 +450,9 @@ function analyzeCurrentTarget(request) {
   }, 'ANALYSIS_FAILED');
 }
 
-function getOperationHistory(page, pageSize, query) {
+function getOperationHistory(page, pageSize, query, status) {
   return ssRpc(function() {
-    return ssHistory(ssRequireSpreadsheet(), Number(page) || 1, Math.min(Number(pageSize) || 10, 20), String(query || ''));
+    return ssHistory(ssRequireSpreadsheet(), Number(page) || 1, Math.min(Number(pageSize) || 10, 20), String(query || ''), String(status || ''));
   }, 'HISTORY_FAILED');
 }
 
@@ -412,6 +582,39 @@ function ssReadContext(request) {
     throw ssError('FORMULA_SHAPE_CHANGE', 'Shape-changing operations are blocked when the target contains formulas. Select constant-value data or use a non-shape-changing operation.');
   }
   return { spreadsheet: spreadsheet, sheet: sheet, range: range, grid: grid, request: normalized };
+}
+
+function ssReadCsvContext(csvText, options) {
+  csvText = String(csvText == null ? '' : csvText);
+  options = options || {};
+  if (!csvText) throw ssError('EMPTY_CSV', 'Choose or paste CSV content before previewing.');
+  if (csvText.length > SS_MAX_CSV_CHARACTERS) throw ssError('CSV_TOO_LARGE', 'CSV import is limited to ' + SS_MAX_CSV_CHARACTERS.toLocaleString('en-US') + ' characters per run.');
+  var delimiter = options.delimiter === ';' || options.delimiter === '\t' ? options.delimiter : ',';
+  var values = ssParseCsv(csvText, delimiter);
+  var outputGrid = ssMakeGrid(values);
+  var rows = outputGrid.length;
+  var columns = outputGrid[0] ? outputGrid[0].length : 0;
+  if (!rows || !columns) throw ssError('EMPTY_CSV', 'The CSV does not contain an importable table.');
+  if (rows * columns > SS_MAX_CELLS) throw ssError('RANGE_TOO_LARGE', 'CSV import is limited to ' + SS_MAX_CELLS.toLocaleString('en-US') + ' cells per run.');
+  var spreadsheet = ssRequireSpreadsheet();
+  var sheet = spreadsheet.getActiveSheet();
+  var selection = spreadsheet.getActiveRange() || sheet.getDataRange();
+  if (selection.getRow() + rows - 1 > sheet.getMaxRows() || selection.getColumn() + columns - 1 > sheet.getMaxColumns()) {
+    throw ssError('TARGET_OUT_OF_BOUNDS', 'The CSV does not fit in the current sheet grid. Add rows or columns, then preview again.');
+  }
+  var outputRange = sheet.getRange(selection.getRow(), selection.getColumn(), rows, columns);
+  ssAssertWritable(outputRange);
+  ssAssertExpansionIsSafe({ sheet: sheet, range: selection }, outputGrid);
+  return {
+    spreadsheet: spreadsheet,
+    sheet: sheet,
+    selection: selection,
+    outputRange: outputRange,
+    beforeGrid: ssReadGrid(outputRange),
+    outputGrid: outputGrid,
+    delimiter: delimiter,
+    hasHeader: options.hasHeader !== false
+  };
 }
 
 function ssAssertWritable(range) {
@@ -568,17 +771,27 @@ function ssPublicOperation(record) {
   };
 }
 
-function ssHistory(spreadsheet, page, pageSize, query) {
+function ssHistory(spreadsheet, page, pageSize, query, status) {
   var store = ssUserStore();
   var namespace = ssNamespace(spreadsheet);
   var index = ssReadJson(store, ssKey(namespace, 'INDEX'), []);
   var lowered = query.toLocaleLowerCase();
-  var records = index.map(function(id) { return ssReadJson(store, ssKey(namespace, 'OP_' + id), null); })
-    .filter(Boolean).map(ssPublicOperation).filter(function(record) {
-      return !lowered || JSON.stringify(record).toLocaleLowerCase().indexOf(lowered) !== -1;
-    });
-  var start = (Math.max(page, 1) - 1) * pageSize;
-  return { items: records.slice(start, start + pageSize), page: Math.max(page, 1), pageSize: pageSize, total: records.length, pages: Math.max(1, Math.ceil(records.length / pageSize)) };
+  var requestedStatus = String(status || '').toLocaleUpperCase();
+  var allRecords = index.map(function(id) { return ssReadJson(store, ssKey(namespace, 'OP_' + id), null); })
+    .filter(Boolean).map(ssPublicOperation);
+  var statusCounts = allRecords.reduce(function(counts, record) {
+    counts[record.status] = (counts[record.status] || 0) + 1;
+    return counts;
+  }, { APPLIED: 0, FAILED: 0, UNDONE: 0, APPLYING: 0 });
+  var records = allRecords.filter(function(record) {
+    var matchesQuery = !lowered || JSON.stringify(record).toLocaleLowerCase().indexOf(lowered) !== -1;
+    var matchesStatus = !requestedStatus || record.status === requestedStatus;
+    return matchesQuery && matchesStatus;
+  });
+  var pages = Math.max(1, Math.ceil(records.length / pageSize));
+  var safePage = Math.min(Math.max(page, 1), pages);
+  var start = (safePage - 1) * pageSize;
+  return { items: records.slice(start, start + pageSize), page: safePage, pageSize: pageSize, total: records.length, pages: pages, statusCounts: statusCounts };
 }
 
 function ssPruneHistory(spreadsheet, store, namespace) {

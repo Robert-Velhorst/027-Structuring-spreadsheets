@@ -17,7 +17,7 @@ new vm.Script(script[1], { filename: 'src/Sidebar.html#script' });
 const server = fs.readFileSync(path.join(root, 'src/Server.gs'), 'utf8');
 const rpcFunctions = [...html.matchAll(/\.([A-Za-z][A-Za-z0-9_]*)\(/g)]
   .map(match => match[1])
-  .filter(name => ['getBootstrap','acknowledgeOnboarding','previewOperation','applyOperation','undoOperation','analyzeCurrentTarget','getOperationHistory','exportCurrentRangeCsv','savePreset','listPresets','deletePreset','setMutationPause','exportSupportBundle','deleteMySheetShaperData'].includes(name));
+  .filter(name => ['getBootstrap','setLanguage','acknowledgeOnboarding','previewOperation','previewCsvImport','applyOperation','applyCsvImport','undoOperation','analyzeCurrentTarget','getOperationHistory','exportCurrentRangeCsv','savePreset','listPresets','deletePreset','setMutationPause','exportSupportBundle','deleteMySheetShaperData'].includes(name));
 for (const functionName of new Set(rpcFunctions)) {
   if (!new RegExp(`function\\s+${functionName}\\s*\\(`).test(server)) throw new Error(`Sidebar calls missing server function ${functionName}.`);
 }

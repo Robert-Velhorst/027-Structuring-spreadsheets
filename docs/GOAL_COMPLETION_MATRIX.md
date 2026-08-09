@@ -2,6 +2,49 @@
 
 Statuses are evidence-based: **Implemented** means locally coded, wired, tested, and documented; **Partial** names a real remaining verification or supported-surface gap; **Blocked** is reserved for external state; **Not applicable** means the generic phase does not fit a current-document Apps Script add-on and adding it would expand risk without product value.
 
+## Version 3 standalone superseding classification
+
+The original 116-phase table below remains the detailed Google Sheets add-on
+classification. Version 3 adds a Windows/API/Sites product, so the following
+rows supersede any older `Not applicable` or add-on-only wording for the same
+phase.
+
+| Phases | Status | Version 3 evidence / remaining work |
+|---|---|---|
+| 000–004 repository, product, architecture | Implemented | Real GitHub repo retained; React/Vite, FastAPI, SQLite, Windows, ngrok, HAI, and Sites boundaries are documented and wired. |
+| 005–011 data, config, auth, API, frontend, slice | Implemented | Owner-scoped SQLite, environment validation, strong bearer auth, uniform HTTP envelopes, responsive workspace, and CSV/XLSX vertical slice. |
+| 012–014 provider truth / no fake success | Implemented | Local, public, HAI, Sites, Gmail, and Drive boundaries are explicit; Gmail/Drive are not silently mutated or claimed as runtime integrations. |
+| 015 storage/uploads | Implemented | Bounded CSV/XLSX streaming, safe names, generated file IDs, content checks, hashed versions, download, and complete deletion. |
+| 016 workers | Implemented | Blocking workbook work is moved off the request loop; one process is enforced because write locks are process-local. No autonomous jobs exist. |
+| 017–021 idempotency, quotas, audit, dashboard, forms | Implemented | Idempotency key, preview consumption, rate/cell/upload limits, bounded audit metadata, quality/exception views, and server-side validation. |
+| 022 search/filter/pagination | Partial | History filtering and paginated API are complete; the React table does not yet expose page navigation beyond its current page. |
+| 023 import/export | Implemented | Production CSV/XLSX import and authenticated download; add-on CSV import/export is preview-gated. |
+| 026, 053, 054, 059, 062, 110 review/recovery/state | Implemented | Preview → acknowledgement → backup → write → readback validation → stale-safe restore is integration-tested. |
+| 028 privacy/deletion | Implemented | Local bytes and all versions can be deleted; audit details exclude cells/content/tokens; public-mode transmission is stated in UI. |
+| 029 web security | Implemented | Loopback binding, bearer auth, bounded bodies, rate limiting, CORS allowlist, CSP, nosniff, referrer, permissions, and no-store headers. |
+| 030 secrets | Implemented | Public token is strong, DPAPI-protected at rest, copied only to clipboard for setup, and absent from Git/runtime JSON/log claims. |
+| 031 one-command development | Implemented | Windows setup/start/stop scripts, supported runtime checks, frozen lockfiles, and fast `uv` preference. |
+| 032 deployment | Partial | One-folder Windows executable and Sites worker build locally; private Sites deployment is completed in the release handoff. Live ngrok acceptance is blocked by an already-online account endpoint (`ERR_NGROK_334`). |
+| 033 migrations | Implemented | Versioned idempotent SQLite schema initialization, foreign keys, WAL, indexes, busy timeout, and optimize. |
+| 034–036 doctor/health/diagnostics | Implemented | Add-on doctor plus `/healthz`, `/readyz`, request IDs, safe errors, runtime logs, verified PID ledger, and HAI manifest. |
+| 040 backend tests | Implemented | 11 API/engine integrations cover CSV, XLSX, auth, HAI deny-by-default, malformed files, idempotency, deletion, formula preservation, apply and restore. |
+| 041 frontend tests | Implemented | React tests cover loaded review/apply behavior and disconnected no-fake-data state; Node 24 is enforced in CI. |
+| 043 end-to-end | Partial | API and packaged executable E2E pass; in-app Browser and Computer screenshot helpers failed before page control, so rendered interaction evidence is not claimed. |
+| 047 file safety | Implemented | Only `.csv`/`.xlsx`, generated IDs, sanitized download names, fixed data root, no user path joins, malformed ZIP/UTF-8 rejection. |
+| 048 provider failure | Implemented | Offline UI, unauthorized public API, HAI mutation denial, ngrok agent collision, and already-active endpoint failure paths were exercised. |
+| 049–050 accessibility/browser/responsive | Partial | Semantic labels, keyboard controls, live status, desktop/mobile CSS, and generated design references are implemented; live screenshot QA is tool-blocked. |
+| 051–052 performance/large data | Partial | 250,000-cell fail-closed boundary, bounded windows, WAL, worker offload, and 70 KB compressed client; cross-hardware timing baseline remains. |
+| 057 i18n | Partial | Add-on English/Dutch is implemented; standalone workspace is English. |
+| 058 feature flags | Implemented | Add-on flags are explicit; HAI mutations and public mode are fail-closed environment gates. |
+| 063 credentials | Partial | No invented credentials; local/ngrok setup is implemented. Live ngrok endpoint ownership and Google deployment remain owner/account state. |
+| 066 supply chain | Implemented | Exact frontend pins, pnpm lock, bounded Python ranges, checksum-verified LTS test runtime, read-only CI permissions. |
+| 068 CI/CD | Implemented | Linux add-on and Windows web/API/PowerShell/PyInstaller/smoke jobs are defined. Remote run is pending the pushed commit. |
+| 069 release/rollback | Partial | Local stop, backup restore, source rollback, Windows rebuild, and Sites versions exist; live ngrok endpoint conflict remains external. |
+| 071–075 guide, errors, action/endpoint/truth audit | Implemented | README, architecture, HAI guide, Windows scripts, OpenAPI, and this superseding truth table describe actual surfaces and blockers. |
+| 089/092/093/096 stabilization/evidence | Partial | Local source and package gates pass. Browser/Computer visual capture and fresh remote CI are not claimed. |
+| 103 prototype-to-production | Implemented | Add-on prototype retained and hardened; real standalone database/API/UI/distribution path added without fake providers. |
+| 112–115 version/baseline/maintenance/operator | Partial | Version 3.0.0 and expanded regression baseline are implemented; operator readiness is limited by live ngrok and Google-account acceptance. |
+
 | Phase | Status | Evidence / remaining work |
 |---:|---|---|
 | 000 Repository integrity | Implemented | Remote/default/start/branch and initial tree recorded in technical audit |
