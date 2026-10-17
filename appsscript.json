@@ -10,7 +10,6 @@
     "https://www.googleapis.com/auth/script.container.ui"
   ],
   "executionApi": {
-    "access": "ANYONE"
+    "access": "MYSELF"
   }
 }
-
